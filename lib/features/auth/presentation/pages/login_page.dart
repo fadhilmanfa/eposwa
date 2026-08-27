@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:eposwa/core/constants/app_colors.dart';
 import 'package:eposwa/core/widgets/custom_title_bar.dart';
+import 'package:eposwa/features/main_layout/presentation/pages/main_layout_page.dart';
 
 /// Halaman Login Minimalis & Production-Ready untuk ePOSWA.
 class LoginPage extends StatefulWidget {
@@ -27,29 +28,26 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _handleLogin() async {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+    // Mode Debug/Testing: Langsung masuk ke Dashboard Utama tanpa perlu isi form
+    final username = _identifierController.text.trim().isNotEmpty
+        ? _identifierController.text.trim()
+        : 'Admin Test';
 
-    setState(() => _isLoading = true);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Login berhasil (Debug Mode): $username'),
+        backgroundColor: AppColors.primaryDark,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 1),
+      ),
+    );
 
-    try {
-      // Simulasi request login (siap dihubungkan ke auth service / API repository)
-      await Future.delayed(const Duration(milliseconds: 800));
-
-      if (!mounted) return;
-
-      final username = _identifierController.text.trim();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Login berhasil: $username'),
-          backgroundColor: AppColors.primaryDark,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
+    // Langsung navigasi ke MainLayoutPage
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (context) => const MainLayoutPage(),
+      ),
+    );
   }
 
   void _showForgotPasswordDialog() {
@@ -71,7 +69,7 @@ class _LoginPageState extends State<LoginPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Masukkan email atau NIK yang terdaftar untuk menerima instruksi pemulihan kata sandi.',
+              'Masukkan username dan password Anda untuk masuk',
               style: TextStyle(
                 fontSize: 13,
                 color: AppColors.textMuted,
@@ -84,8 +82,8 @@ class _LoginPageState extends State<LoginPage> {
               controller: emailController,
               keyboardType: TextInputType.emailAddress,
               decoration: InputDecoration(
-                labelText: 'Email / NIK',
-                hintText: 'nama@instansi.id atau NIK',
+                labelText: 'Username',
+                hintText: 'Masukkan username Anda',
                 prefixIcon: const Icon(Icons.mail_outline_rounded, size: 20),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
@@ -179,7 +177,7 @@ class _LoginPageState extends State<LoginPage> {
                                   ),
                                   SizedBox(width: 6),
                                   Text(
-                                    'Kembali ke Beranda',
+                                    'Beranda',
                                     style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600,
@@ -196,48 +194,24 @@ class _LoginPageState extends State<LoginPage> {
                           // Brand Logo & Header
                           Row(
                             children: [
-                              Container(
-                                width: 40,
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  color: AppColors.primaryPastel,
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: AppColors.primary.withValues(alpha: 0.2),
-                                    width: 1.5,
-                                  ),
-                                ),
-                                child: const Icon(
-                                  Icons.favorite_rounded,
-                                  size: 22,
-                                  color: AppColors.primary,
-                                ),
+                              // Logo UMS
+                              Image.asset(
+                                'assets/images/ums.png',
+                                height: 42,
+                                fit: BoxFit.contain,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    const SizedBox.shrink(),
                               ),
-                              const SizedBox(width: 12),
-                              const Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'ePOSWA',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w800,
-                                      color: AppColors.primaryDark,
-                                      letterSpacing: -0.5,
-                                      fontFamily: 'Inter',
-                                    ),
-                                  ),
-                                  Text(
-                                    'Layanan Kesehatan Jiwa',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w500,
-                                      color: AppColors.textMuted,
-                                      fontFamily: 'Inter',
-                                    ),
-                                  ),
-                                ],
+                              const SizedBox(width: 14),
+                              // Logo Puskesmas
+                              Image.asset(
+                                'assets/images/puskesmas.png',
+                                height: 48,
+                                fit: BoxFit.contain,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    const SizedBox.shrink(),
                               ),
+                              const SizedBox(width: 20),
                             ],
                           ),
                           const SizedBox(height: 28),
@@ -255,7 +229,7 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                           const SizedBox(height: 6),
                           const Text(
-                            'Masukkan email atau NIK dan kata sandi Anda untuk melanjutkan.',
+                            'Masukkan username dan password Anda untuk melanjutkan.',
                             style: TextStyle(
                               fontSize: 13,
                               color: AppColors.textMuted,
@@ -267,7 +241,7 @@ class _LoginPageState extends State<LoginPage> {
 
                           // Field Email/NIK
                           const Text(
-                            'Email atau NIK',
+                            'Username',
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
@@ -281,7 +255,7 @@ class _LoginPageState extends State<LoginPage> {
                             keyboardType: TextInputType.emailAddress,
                             textInputAction: TextInputAction.next,
                             decoration: InputDecoration(
-                              hintText: 'nama@instansi.id atau NIK',
+                              hintText: 'Masukkan username Anda',
                               hintStyle: const TextStyle(
                                 fontSize: 13,
                                 color: Color(0xFF94A3B8),
@@ -343,7 +317,7 @@ class _LoginPageState extends State<LoginPage> {
                             textInputAction: TextInputAction.done,
                             onFieldSubmitted: (_) => _handleLogin(),
                             decoration: InputDecoration(
-                              hintText: 'Masukkan kata sandi',
+                              hintText: 'Masukkan kata sandi Anda',
                               hintStyle: const TextStyle(
                                 fontSize: 13,
                                 color: Color(0xFF94A3B8),
