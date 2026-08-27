@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:eposwa/core/theme/app_theme.dart';
-import 'package:eposwa/features/beranda/presentation/pages/beranda_page.dart';
+import 'package:eposwa/core/widgets/app_splash_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -42,7 +42,7 @@ class MyApp extends StatelessWidget {
       title: 'ePOSWA',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
-      home: const BerandaPage(),
+      home: const AppSplashScreen(),
     );
   }
 }

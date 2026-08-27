@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:eposwa/core/responsive/app_responsive.dart';
 import 'package:eposwa/features/beranda/presentation/widgets/beranda_menu_card.dart';
 
@@ -13,17 +14,23 @@ class BerandaMenuGrid extends StatelessWidget {
     final overlap = context.scaleSpace(50, medium: 80, expanded: 110, large: 130);
     final padBottom = context.scaleSpace(32, medium: 48, expanded: 64);
 
-    return Container(
-      width: double.infinity,
-      color: Colors.transparent,
-      child: Transform.translate(
-        offset: Offset(0, -overlap),
-        child: Padding(
-          padding: EdgeInsets.only(bottom: padBottom > overlap ? padBottom - overlap : 8),
-          child: AppContainer(
-            child: isCompact ? _buildCompactCards() : _buildWideCards(),
-          ),
-        ),
+    // Konten kartu tanpa Transform: akan digeser via _OverlapWrapper di layer layout,
+    // sehingga hit-test / hover tetap akurat di area yang overlap dengan jumbotron.
+    final content = Padding(
+      padding: EdgeInsets.only(
+        bottom: padBottom > overlap ? padBottom - overlap : 8,
+      ),
+      child: AppContainer(
+        child: isCompact ? _buildCompactCards() : _buildWideCards(),
+      ),
+    );
+
+    return _OverlapWrapper(
+      overlap: overlap,
+      child: Container(
+        width: double.infinity,
+        color: Colors.transparent,
+        child: content,
       ),
     );
   }
@@ -83,5 +90,80 @@ class BerandaMenuGrid extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+/// Wrapper yang menggeser child ke atas sebesar [overlap] di fase **layout**
+/// bukan hanya paint, sehingga:
+/// - tinggi [Stack]/[Column] induk berkurang sebesar overlap (tidak ada gap kosong)
+/// - hit-test / MouseRegion hover mencakup area overlap di atas jumbotron
+/// Sebelumnya pakai `Transform.translate` yang hanya menggeser paint → bagian
+/// atas kartu (card 3 di sisi kanan) berada di luar bounds parent Container,
+/// sehingga hover hanya aktif kalau kursor agak ke bawah (di dalam bounds).
+class _OverlapWrapper extends SingleChildRenderObjectWidget {
+  const _OverlapWrapper({required this.overlap, required super.child});
+
+  final double overlap;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) {
+    return RenderOverlapWrapper(overlap: overlap);
+  }
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    covariant RenderOverlapWrapper renderObject,
+  ) {
+    renderObject.overlap = overlap;
+  }
+}
+
+class RenderOverlapWrapper extends RenderProxyBox {
+  RenderOverlapWrapper({required double overlap}) : _overlap = overlap; // ignore: prefer_initializing_formals
+
+  double _overlap;
+  set overlap(double value) {
+    if (_overlap == value) return;
+    _overlap = value;
+    markNeedsLayout();
+    markNeedsPaint();
+  }
+
+  @override
+  void performLayout() {
+    if (child == null) {
+      size = Size.zero;
+      return;
+    }
+    // Layout child dengan constraints penuh dari parent (Column/Sliver).
+    child!.layout(constraints, parentUsesSize: true);
+    final childSize = child!.size;
+    // Tinggi wrapper dikurangi overlap agar Column/Sliver tinggi total
+    // = jumbotron + kartu - overlap (visual presisi, tanpa gap).
+    final h = (childSize.height - _overlap).clamp(0.0, double.infinity);
+    size = Size(childSize.width, h);
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    if (child == null) return;
+    // Geser child ke atas sebesar overlap di fase paint, sinkron dengan layout.
+    context.paintChild(child!, offset + Offset(0, -_overlap));
+  }
+
+  @override
+  bool hitTest(BoxHitTestResult result, {required Offset position}) {
+    if (child == null) return false;
+    // position lokal terhadap wrapper (0,0 di pojok kiri atas wrapper).
+    // Child dipaint di offset (0, -overlap), jadi posisi lokal child = position + overlap.
+    final adjusted = Offset(position.dx, position.dy + _overlap);
+    if (adjusted.dx < 0 ||
+        adjusted.dx > child!.size.width ||
+        adjusted.dy < 0 ||
+        adjusted.dy > child!.size.height) {
+      return false;
+    }
+    return child!.hitTest(result, position: adjusted);
   }
 }

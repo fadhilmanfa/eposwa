@@ -71,32 +71,45 @@ class _BerandaNavbarState extends State<BerandaNavbar> {
   }
 
   Widget _buildBrand(BuildContext context, {required bool isCompact}) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: () => widget.onMenuSelected?.call('Beranda'),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: AppColors.primaryPastel,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: AppColors.primary.withValues(alpha: 0.2),
-                  width: 1.5,
-                ),
-              ),
-              child: const Icon(
-                Icons.favorite_rounded,
-                size: 20,
-                color: AppColors.primary,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Column(
+    // Ukuran logo responsif: lebih besar di desktop, lebih kecil di compact (mobile)
+    final logoHeight = isCompact ? 36.0 : 48.0;
+    final umsHeight = isCompact ? 32.0 : 42.0;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Logo UMS - paling kiri
+        Image.asset(
+          'assets/images/ums.png',
+          height: umsHeight,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) =>
+              const SizedBox.shrink(),
+        ),
+        SizedBox(width: isCompact ? 8 : 12),
+        // Logo Puskesmas
+        Image.asset(
+          'assets/images/puskesmas.png',
+          height: logoHeight,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) =>
+              const SizedBox.shrink(),
+        ),
+
+        // Divider vertikal pemisah logo partner dengan brand
+        Container(
+          width: 1,
+          height: isCompact ? 30 : 40,
+          margin: EdgeInsets.symmetric(horizontal: isCompact ? 12 : 18),
+          color: AppColors.borderLight,
+        ),
+
+        // Brand ePOSWA - hanya teks, di kanan logo
+        MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: () => widget.onMenuSelected?.call('Beranda'),
+            child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -124,9 +137,9 @@ class _BerandaNavbarState extends State<BerandaNavbar> {
                   ),
               ],
             ),
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
 

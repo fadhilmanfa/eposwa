@@ -18,6 +18,9 @@ class BerandaFooter extends StatelessWidget {
     return Container(
       width: double.infinity,
       color: AppColors.footerDarker,
+      margin: EdgeInsets.only(
+        top: context.scaleSpace(40, medium: 56, expanded: 72, large: 88),
+      ),
       padding: EdgeInsets.symmetric(
         vertical: context.scaleSpace(18, medium: 22, expanded: 24),
       ),
