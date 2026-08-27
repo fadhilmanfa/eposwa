@@ -39,10 +39,12 @@ class BerandaJumbotron extends StatelessWidget {
         ),
         padding: EdgeInsets.fromLTRB(0, padVTop, 0, padVBottom),
         child: AppContainer(
-          alignment: Alignment.centerLeft,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 760),
-            child: _buildHeroContent(context),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 760),
+              child: _buildHeroContent(context),
+            ),
           ),
         ),
       ),

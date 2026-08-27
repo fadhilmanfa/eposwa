@@ -21,7 +21,6 @@ class BerandaMenuGrid extends StatelessWidget {
         child: Padding(
           padding: EdgeInsets.only(bottom: padBottom > overlap ? padBottom - overlap : 8),
           child: AppContainer(
-            alignment: Alignment.centerLeft,
             child: isCompact ? _buildCompactCards() : _buildWideCards(),
           ),
         ),
@@ -30,65 +29,59 @@ class BerandaMenuGrid extends StatelessWidget {
   }
 
   Widget _buildCompactCards() {
-    return const Align(
-      alignment: Alignment.centerLeft,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          BerandaMenuCard(
-            label: 'Pendaftaran Pasien',
-            icon: Icons.how_to_reg_rounded,
-            description: 'Daftarkan diri atau anggota keluarga Anda untuk mendapatkan pendampingan berkala dari kader.',
-          ),
-          SizedBox(height: 16),
-          BerandaMenuCard(
-            label: 'Skrining Jiwa Mandiri',
-            icon: Icons.quiz_rounded,
-            description: 'Evaluasi kondisi psikologis dengan kuesioner tervalidasi dan rekomendasi tindak lanjut.',
-          ),
-          SizedBox(height: 16),
-          BerandaMenuCard(
-            label: 'Database & Rekapitulasi',
-            icon: Icons.analytics_rounded,
-            description: 'Pengelolaan data rekam posyandu, statistik kunjungan, serta arsip rujukan ke Puskesmas.',
-          ),
-        ],
-      ),
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        BerandaMenuCard(
+          label: 'Pendaftaran Pasien',
+          icon: Icons.how_to_reg_rounded,
+          description: 'Daftarkan diri atau anggota keluarga Anda untuk mendapatkan pendampingan berkala dari kader.',
+        ),
+        SizedBox(height: 16),
+        BerandaMenuCard(
+          label: 'Skrining Jiwa Mandiri',
+          icon: Icons.quiz_rounded,
+          description: 'Evaluasi kondisi psikologis dengan kuesioner tervalidasi dan rekomendasi tindak lanjut.',
+        ),
+        SizedBox(height: 16),
+        BerandaMenuCard(
+          label: 'Database & Rekapitulasi',
+          icon: Icons.analytics_rounded,
+          description: 'Pengelolaan data rekam posyandu, statistik kunjungan, serta arsip rujukan ke Puskesmas.',
+        ),
+      ],
     );
   }
 
   Widget _buildWideCards() {
-    return const Align(
-      alignment: Alignment.centerLeft,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: BerandaMenuCard(
-              label: 'Pendaftaran Pasien',
-              icon: Icons.how_to_reg_rounded,
-              description: 'Daftarkan diri atau anggota keluarga Anda untuk mendapatkan pendampingan berkala dari kader.',
-            ),
+    return const Row(
+      mainAxisAlignment: MainAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: BerandaMenuCard(
+            label: 'Pendaftaran Pasien',
+            icon: Icons.how_to_reg_rounded,
+            description: 'Daftarkan diri atau anggota keluarga Anda untuk mendapatkan pendampingan berkala dari kader.',
           ),
-          SizedBox(width: 24),
-          Expanded(
-            child: BerandaMenuCard(
-              label: 'Skrining Jiwa Mandiri',
-              icon: Icons.quiz_rounded,
-              description: 'Evaluasi kondisi psikologis dengan kuesioner tervalidasi dan rekomendasi tindak lanjut.',
-            ),
+        ),
+        SizedBox(width: 24),
+        Expanded(
+          child: BerandaMenuCard(
+            label: 'Skrining Jiwa Mandiri',
+            icon: Icons.quiz_rounded,
+            description: 'Evaluasi kondisi psikologis dengan kuesioner tervalidasi dan rekomendasi tindak lanjut.',
           ),
-          SizedBox(width: 24),
-          Expanded(
-            child: BerandaMenuCard(
-              label: 'Database & Rekapitulasi',
-              icon: Icons.analytics_rounded,
-              description: 'Pengelolaan data rekam posyandu, statistik kunjungan, serta arsip rujukan ke Puskesmas.',
-            ),
+        ),
+        SizedBox(width: 24),
+        Expanded(
+          child: BerandaMenuCard(
+            label: 'Database & Rekapitulasi',
+            icon: Icons.analytics_rounded,
+            description: 'Pengelolaan data rekam posyandu, statistik kunjungan, serta arsip rujukan ke Puskesmas.',
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
