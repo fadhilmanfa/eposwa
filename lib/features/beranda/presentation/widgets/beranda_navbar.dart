@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:eposwa/core/constants/app_colors.dart';
 import 'package:eposwa/core/responsive/app_responsive.dart';
 
+import 'package:eposwa/features/auth/presentation/pages/login_page.dart';
+
 /// Navigation bar modern untuk ePOSWA.
 /// Di layar lebar menampilkan menu lengkap + tombol aksi pendaftaran,
 /// di layar compact/medium menampilkan brand logo + tombol aksi ringkas.
@@ -9,10 +11,12 @@ class BerandaNavbar extends StatefulWidget implements PreferredSizeWidget {
   const BerandaNavbar({
     super.key,
     this.onMenuSelected,
+    this.onLoginPressed,
     this.onRegisterPressed,
   });
 
   final ValueChanged<String>? onMenuSelected;
+  final VoidCallback? onLoginPressed;
   final VoidCallback? onRegisterPressed;
 
   @override
@@ -23,13 +27,6 @@ class BerandaNavbar extends StatefulWidget implements PreferredSizeWidget {
 }
 
 class _BerandaNavbarState extends State<BerandaNavbar> {
-  String _activeMenu = 'Beranda';
-
-  final List<String> _menuItems = const [
-    'Beranda',
-    'Layanan',
-  ];
-
   @override
   Widget build(BuildContext context) {
     final screenWidth = context.screenWidth;
@@ -63,39 +60,7 @@ class _BerandaNavbarState extends State<BerandaNavbar> {
 
             const SizedBox(width: 12),
 
-            // Desktop Navigation Links (Scrollable if tightly constrained)
-            if (showFullMenu) ...[
-              Expanded(
-                child: Center(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    physics: const BouncingScrollPhysics(),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: _menuItems.map((item) {
-                        final isActive = _activeMenu == item;
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 2),
-                          child: _NavItem(
-                            label: item,
-                            isActive: isActive,
-                            onTap: () {
-                              setState(() {
-                                _activeMenu = item;
-                              });
-                              widget.onMenuSelected?.call(item);
-                            },
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-            ] else ...[
-              const Spacer(),
-            ],
+            const Spacer(),
 
             // Right CTA Button
             _buildCtaButton(context, isCompact: !showFullMenu),
@@ -135,38 +100,15 @@ class _BerandaNavbarState extends State<BerandaNavbar> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      'ePOSWA',
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.primaryDark,
-                        letterSpacing: -0.5,
-                        fontFamily: 'Inter',
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryPastel,
-                        borderRadius: BorderRadius.circular(5),
-                      ),
-                      child: const Text(
-                        'POSYANDU JIWA',
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.primary,
-                          letterSpacing: 0.3,
-                          fontFamily: 'Inter',
-                        ),
-                      ),
-                    ),
-                  ],
+                const Text(
+                  'ePOSWA',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.primaryDark,
+                    letterSpacing: -0.5,
+                    fontFamily: 'Inter',
+                  ),
                 ),
                 if (!isCompact)
                   const Text(
@@ -190,18 +132,15 @@ class _BerandaNavbarState extends State<BerandaNavbar> {
 
   Widget _buildCtaButton(BuildContext context, {required bool isCompact}) {
     return ElevatedButton.icon(
-      onPressed: widget.onRegisterPressed ??
+      onPressed: widget.onLoginPressed ??
+          widget.onRegisterPressed ??
           () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Membuka Formulir Pendaftaran Pasien...'),
-                backgroundColor: AppColors.primary,
-                behavior: SnackBarBehavior.floating,
-              ),
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (context) => const LoginPage()),
             );
           },
-      icon: const Icon(Icons.person_add_alt_1_rounded, size: 16),
-      label: Text(isCompact ? 'Daftar' : 'Pendaftaran Pasien'),
+      icon: const Icon(Icons.login_rounded, size: 16),
+      label: const Text('Masuk'),
       style: ElevatedButton.styleFrom(
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
@@ -217,63 +156,6 @@ class _BerandaNavbarState extends State<BerandaNavbar> {
           fontSize: isCompact ? 12 : 13,
           fontWeight: FontWeight.w700,
           fontFamily: 'Inter',
-        ),
-      ),
-    );
-  }
-}
-
-class _NavItem extends StatefulWidget {
-  const _NavItem({
-    required this.label,
-    required this.isActive,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool isActive;
-  final VoidCallback onTap;
-
-  @override
-  State<_NavItem> createState() => _NavItemState();
-}
-
-class _NavItemState extends State<_NavItem> {
-  bool _isHovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = widget.isActive
-        ? AppColors.primary
-        : _isHovered
-            ? AppColors.textDark
-            : AppColors.textMuted;
-
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: widget.isActive
-                ? AppColors.primarySoft
-                : _isHovered
-                    ? Colors.grey.shade100
-                    : Colors.transparent,
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Text(
-            widget.label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: widget.isActive ? FontWeight.w700 : FontWeight.w500,
-              color: color,
-              fontFamily: 'Inter',
-            ),
-          ),
         ),
       ),
     );

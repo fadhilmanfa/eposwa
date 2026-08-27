@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:eposwa/core/widgets/custom_title_bar.dart';
+import 'package:eposwa/features/auth/presentation/pages/login_page.dart';
 import 'package:eposwa/features/beranda/presentation/widgets/beranda_footer.dart';
 import 'package:eposwa/features/beranda/presentation/widgets/beranda_jumbotron.dart';
 import 'package:eposwa/features/beranda/presentation/widgets/beranda_menu_grid.dart';
@@ -62,6 +63,11 @@ class _BerandaPageState extends State<BerandaPage> {
           // Top Responsive Navbar
           BerandaNavbar(
             onMenuSelected: _handleMenuSelection,
+            onLoginPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const LoginPage()),
+              );
+            },
             onRegisterPressed: () => _scrollToSection(_layananKey),
           ),
 
