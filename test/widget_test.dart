@@ -3,38 +3,36 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:eposwa/main.dart';
 
 void main() {
-  testWidgets('Beranda full replika smoke test', (WidgetTester tester) async {
+  testWidgets('Beranda minimalist layout renders correctly on desktop resolution', (WidgetTester tester) async {
+    // Set screen size (desktop resolution 1080p)
+    tester.view.physicalSize = const Size(1280, 1024);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     await tester.pumpWidget(const MyApp());
+    await tester.pumpAndSettle();
 
-    // AppBar putih mirip gambar - nav items
+    // Brand and Navbar
+    expect(find.text('ePOSWA'), findsWidgets);
     expect(find.text('Beranda'), findsOneWidget);
-    expect(find.text('Tentang'), findsOneWidget);
-    expect(find.text('Kontak'), findsOneWidget);
+    expect(find.text('Layanan'), findsOneWidget);
 
-    // Jumbotron ngotak - tetap selamat datang (RichText)
+    // Hero Section
     expect(
       find.byWidgetPredicate(
         (w) => w is RichText && w.text.toPlainText().contains('Selamat Datang'),
       ),
       findsOneWidget,
     );
-    expect(find.text('Kelola pendaftaran dan data dengan mudah'), findsOneWidget);
-    expect(find.text('DAFTAR SEKARANG'), findsOneWidget);
 
-    // 3 menu flat tetap pendaftaran/test/database
-    expect(find.text('Pendaftaran'), findsOneWidget);
-    expect(find.text('Test'), findsOneWidget);
-    expect(find.text('Database'), findsOneWidget);
-    expect(find.byIcon(Icons.hearing_rounded), findsOneWidget);
-    expect(find.byIcon(Icons.verified_user_rounded), findsOneWidget);
-    expect(find.byIcon(Icons.menu_book_rounded), findsOneWidget);
+    // Floating Services Grid (3 Cards)
+    expect(find.text('Pendaftaran Pasien'), findsWidgets);
+    expect(find.text('Skrining Jiwa Mandiri'), findsOneWidget);
+    expect(find.text('Database & Rekapitulasi'), findsOneWidget);
 
-    // Artikel section
-    expect(find.text('Artikel Pilihan Anda'), findsWidgets);
-    expect(find.text('Apa itu kesehatan Mental?'), findsWidgets);
-
-    // Footer
-    expect(find.text('Kontak Kami'), findsOneWidget);
-    expect(find.text('Alamat Kami'), findsOneWidget);
+    // Minimalist Footer
+    expect(find.text('© 2026 ePOSWA. All rights reserved.'), findsOneWidget);
+    expect(find.text('Versi v1.0.0'), findsOneWidget);
   });
 }

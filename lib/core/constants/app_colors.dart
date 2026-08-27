@@ -32,9 +32,25 @@ class AppColors {
 
   /// Warna pastel untuk replikasi layout website (gambar)
   static const Color primaryPastel = Color(0xFFE3F2FD);
-  static const Color sectionLight = Color(0xFFEAF6FF);
-  static const Color footerDark = Color(0xFF263238);
+  static const Color primarySoft = Color(0xFFEFF6FF);
+  static const Color sectionLight = Color(0xFFF8FAFC);
+  static const Color sectionCardBg = Color(0xFFF1F5F9);
+  static const Color footerDark = Color(0xFF1E293B);
+  static const Color footerDarker = Color(0xFF0F172A);
   static const Color heroButton = Color(0xFF0E7C7B);
+  static const Color heroButtonHover = Color(0xFF0B6665);
+
+  /// Border & Divider
+  static const Color borderLight = Color(0xFFE2E8F0);
+  static const Color borderMedium = Color(0xFFCBD5E1);
+
+  /// Status & Badges
+  static const Color badgeBgSuccess = Color(0xFFECFDF5);
+  static const Color badgeTextSuccess = Color(0xFF059669);
+  static const Color badgeBgInfo = Color(0xFFEFF6FF);
+  static const Color badgeTextInfo = Color(0xFF2563EB);
+  static const Color badgeBgWarning = Color(0xFFFFFBEB);
+  static const Color badgeTextWarning = Color(0xFFD97706);
 
   /// Gradient untuk jumbotron/header
   static const LinearGradient primaryGradient = LinearGradient(
@@ -47,5 +63,23 @@ class AppColors {
     colors: [primaryDark, primary, primaryLight],
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
+  );
+
+  static const LinearGradient heroOverlayGradient = LinearGradient(
+    colors: [
+      Color(0xEE0B192C),
+      Color(0xCC0F2744),
+      Color(0x881E3E62),
+      Colors.transparent,
+    ],
+    stops: [0.0, 0.4, 0.7, 1.0],
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+  );
+
+  static const LinearGradient ctaGradient = LinearGradient(
+    colors: [Color(0xFF0D47A1), Color(0xFF1976D2), Color(0xFF0E7C7B)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
   );
 }
