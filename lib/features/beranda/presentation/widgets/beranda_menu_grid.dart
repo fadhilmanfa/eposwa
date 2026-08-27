@@ -2,44 +2,89 @@ import 'package:flutter/material.dart';
 import 'package:eposwa/core/responsive/app_responsive.dart';
 import 'package:eposwa/features/beranda/presentation/widgets/beranda_menu_card.dart';
 
-/// Grid 3 Menu Beranda - responsif padding & gap.
+/// Grid 3 Card Layanan - Rata kiri & mengambang (floating) naik menimpa setengah jumbotron.
 class BerandaMenuGrid extends StatelessWidget {
   const BerandaMenuGrid({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final padH = context.scaleSpace(16, medium: 16, expanded: 24, large: 32);
-    final padV = context.scaleSpace(28, medium: 28, expanded: 36);
-    final gap = context.scaleSpace(8, medium: 8, expanded: 12);
+    final isCompact = context.isCompact;
+    // Nilai overlap untuk menaikkan 3 kartu ke setengah jumbotron
+    final overlap = context.scaleSpace(50, medium: 80, expanded: 110, large: 130);
+    final padBottom = context.scaleSpace(32, medium: 48, expanded: 64);
 
     return Container(
       width: double.infinity,
-      color: Colors.white,
-      padding: EdgeInsets.fromLTRB(padH, padV, padH, padV),
+      color: Colors.transparent,
+      child: Transform.translate(
+        offset: Offset(0, -overlap),
+        child: Padding(
+          padding: EdgeInsets.only(bottom: padBottom > overlap ? padBottom - overlap : 8),
+          child: AppContainer(
+            alignment: Alignment.centerLeft,
+            child: isCompact ? _buildCompactCards() : _buildWideCards(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompactCards() {
+    return const Align(
+      alignment: Alignment.centerLeft,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          BerandaMenuCard(
+            label: 'Pendaftaran Pasien',
+            icon: Icons.how_to_reg_rounded,
+            description: 'Daftarkan diri atau anggota keluarga Anda untuk mendapatkan pendampingan berkala dari kader.',
+          ),
+          SizedBox(height: 16),
+          BerandaMenuCard(
+            label: 'Skrining Jiwa Mandiri',
+            icon: Icons.quiz_rounded,
+            description: 'Evaluasi kondisi psikologis dengan kuesioner tervalidasi dan rekomendasi tindak lanjut.',
+          ),
+          SizedBox(height: 16),
+          BerandaMenuCard(
+            label: 'Database & Rekapitulasi',
+            icon: Icons.analytics_rounded,
+            description: 'Pengelolaan data rekam posyandu, statistik kunjungan, serta arsip rujukan ke Puskesmas.',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWideCards() {
+    return const Align(
+      alignment: Alignment.centerLeft,
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Expanded(
+          Expanded(
             child: BerandaMenuCard(
-              label: 'Pendaftaran',
-              icon: Icons.hearing_rounded,
-              description: 'Kami mendengarkan semua cerita Anda tanpa ragu',
+              label: 'Pendaftaran Pasien',
+              icon: Icons.how_to_reg_rounded,
+              description: 'Daftarkan diri atau anggota keluarga Anda untuk mendapatkan pendampingan berkala dari kader.',
             ),
           ),
-          SizedBox(width: gap),
-          const Expanded(
+          SizedBox(width: 24),
+          Expanded(
             child: BerandaMenuCard(
-              label: 'Test',
-              icon: Icons.verified_user_rounded,
-              description: 'Kami menjunjung tinggi kerahasiaan setiap cerita dan keluhan Anda',
+              label: 'Skrining Jiwa Mandiri',
+              icon: Icons.quiz_rounded,
+              description: 'Evaluasi kondisi psikologis dengan kuesioner tervalidasi dan rekomendasi tindak lanjut.',
             ),
           ),
-          SizedBox(width: gap),
-          const Expanded(
+          SizedBox(width: 24),
+          Expanded(
             child: BerandaMenuCard(
-              label: 'Database',
-              icon: Icons.menu_book_rounded,
-              description: 'Berbagai pilihan artikel mengenai kesehatan mental',
+              label: 'Database & Rekapitulasi',
+              icon: Icons.analytics_rounded,
+              description: 'Pengelolaan data rekam posyandu, statistik kunjungan, serta arsip rujukan ke Puskesmas.',
             ),
           ),
         ],

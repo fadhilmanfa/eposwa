@@ -1,121 +1,112 @@
 import 'package:flutter/material.dart';
-import 'package:eposwa/core/constants/app_colors.dart';
-import 'package:eposwa/core/responsive/app_responsive.dart';
-import 'package:eposwa/features/beranda/presentation/widgets/beranda_artikel_section.dart';
+import 'package:eposwa/core/widgets/custom_title_bar.dart';
 import 'package:eposwa/features/beranda/presentation/widgets/beranda_footer.dart';
 import 'package:eposwa/features/beranda/presentation/widgets/beranda_jumbotron.dart';
 import 'package:eposwa/features/beranda/presentation/widgets/beranda_menu_grid.dart';
+import 'package:eposwa/features/beranda/presentation/widgets/beranda_navbar.dart';
 
-/// Halaman Beranda (Index) ePOSWA - responsif stepped untuk Windows.
-class BerandaPage extends StatelessWidget {
+/// Halaman Beranda (Landing Page) ePOSWA.
+/// Minimalis, bersih, 3 card mengambang di atas jumbotron (z-index tinggi),
+/// dan footer selalu menempel di bagian paling bawah layar.
+class BerandaPage extends StatefulWidget {
   const BerandaPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final logoSize = context.scaleSize(28, medium: 28, expanded: 32);
-    final logoIcon = context.scaleSize(16, medium: 16, expanded: 18);
-    final titleSize = context.scaleText(10, medium: 11, expanded: 12);
+  State<BerandaPage> createState() => _BerandaPageState();
+}
 
+class _BerandaPageState extends State<BerandaPage> {
+  final ScrollController _scrollController = ScrollController();
+
+  final GlobalKey _berandaKey = GlobalKey();
+  final GlobalKey _layananKey = GlobalKey();
+
+  void _scrollToSection(GlobalKey key) {
+    final context = key.currentContext;
+    if (context != null) {
+      Scrollable.ensureVisible(
+        context,
+        duration: const Duration(milliseconds: 600),
+        curve: Curves.easeInOutCubic,
+      );
+    }
+  }
+
+  void _handleMenuSelection(String menu) {
+    switch (menu) {
+      case 'Beranda':
+        _scrollToSection(_berandaKey);
+        break;
+      case 'Layanan':
+      default:
+        _scrollToSection(_layananKey);
+        break;
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        foregroundColor: AppColors.textDark,
-        elevation: 0,
-        surfaceTintColor: Colors.white,
-        title: Row(
-          children: [
-            Container(
-              width: logoSize,
-              height: logoSize,
-              decoration: const BoxDecoration(
-                color: AppColors.primaryPastel,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.favorite_rounded,
-                size: logoIcon,
-                color: AppColors.primary,
-              ),
-            ),
-            SizedBox(width: context.scaleSpace(8, expanded: 10)),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Posyandu',
-                  style: TextStyle(
-                    fontSize: titleSize,
-                    fontWeight: FontWeight.w700,
-                    height: 1,
-                    color: AppColors.textDark,
-                    fontFamily: 'Inter',
+      body: Column(
+        children: [
+          // Custom frameless title bar (hanya tampil di Windows/Linux/macOS)
+          const CustomTitleBar(),
+
+          // Top Responsive Navbar
+          BerandaNavbar(
+            onMenuSelected: _handleMenuSelection,
+            onRegisterPressed: () => _scrollToSection(_layananKey),
+          ),
+
+          // Scrollable Content
+          Expanded(
+            child: CustomScrollView(
+              controller: _scrollController,
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                // Hero Jumbotron + Floating Menu Grid dalam satu Sliver
+                // Menjamin paint order kartu selalu berada DI ATAS (z-index lebih tinggi) Jumbotron
+                SliverToBoxAdapter(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // 1. Hero Jumbotron (Dilukis pertama di layer bawah)
+                      Container(
+                        key: _berandaKey,
+                        child: const BerandaJumbotron(),
+                      ),
+
+                      // 2. Floating 3 Service Cards Grid (Dilukis kedua di layer atas)
+                      Container(
+                        key: _layananKey,
+                        child: const BerandaMenuGrid(),
+                      ),
+                    ],
                   ),
                 ),
-                Text(
-                  'Jiwa',
-                  style: TextStyle(
-                    fontSize: titleSize,
-                    fontWeight: FontWeight.w700,
-                    height: 1,
-                    color: AppColors.primary,
-                    fontFamily: 'Inter',
+
+                // 3. SliverFillRemaining untuk mendorong footer ke dasar layar
+                const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Spacer(),
+                      BerandaFooter(),
+                    ],
                   ),
                 ),
               ],
             ),
-          ],
-        ),
-        actions: [
-          _navItem(context, 'Beranda', isActive: true),
-          _navItem(context, 'Tentang'),
-          _navItem(context, 'Konseling'),
-          _navItem(context, 'Kontak'),
-          SizedBox(width: context.scaleSpace(8, expanded: 12)),
-        ],
-      ),
-      body: const SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            BerandaJumbotron(),
-            BerandaMenuGrid(),
-            BerandaArtikelSection(),
-            BerandaFooter(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _navItem(BuildContext context, String label, {bool isActive = false}) {
-    final fontSize = context.scaleText(9, medium: 10, expanded: 11, large: 12);
-    final hPad = context.scaleSpace(6, medium: 6, expanded: 8);
-
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: hPad),
-      child: Center(
-        child: InkWell(
-          onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Menu $label segera hadir'),
-                backgroundColor: AppColors.primary,
-                behavior: SnackBarBehavior.floating,
-                duration: const Duration(seconds: 1),
-              ),
-            );
-          },
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: fontSize,
-              fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-              color: isActive ? AppColors.primary : AppColors.textMuted,
-              fontFamily: 'Inter',
-            ),
           ),
-        ),
+        ],
       ),
     );
   }
