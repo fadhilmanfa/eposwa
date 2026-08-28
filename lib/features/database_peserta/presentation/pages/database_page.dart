@@ -87,46 +87,80 @@ class _DatabasePageState extends State<DatabasePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
-          _buildHeaderSection(),
-
-          const SizedBox(height: 24),
-
-          // Search & Filters Card
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.borderLight),
+          // Title
+          const Text(
+            'Database Pendaftaran Peserta',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textDark,
             ),
-            child: Row(
-              children: [
-                Expanded(
-                  flex: 3,
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Kelola seluruh data peserta yang terdaftar, ekspor data, dan perbarui status verifikasi berkas.',
+            style: TextStyle(fontSize: 13, color: AppColors.textMuted),
+          ),
+
+          const SizedBox(height: 20),
+
+          // Search & Filter
+          Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: SizedBox(
+                  height: 44,
                   child: TextField(
                     controller: _searchController,
                     onChanged: (_) => setState(() {}),
                     decoration: InputDecoration(
                       hintText: 'Cari ID Pendaftaran, Nama, NIK...',
                       prefixIcon: const Icon(Icons.search_rounded),
+                      filled: true,
+                      fillColor: Colors.white,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
                       ),
                       contentPadding: const EdgeInsets.symmetric(
                           horizontal: 14, vertical: 12),
                     ),
                   ),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  flex: 2,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: SizedBox(
+                  height: 44,
                   child: DropdownButtonFormField<String>(
                     initialValue: _selectedProgram,
+                    isExpanded: true,
+                    style: const TextStyle(
+                        fontSize: 13.5, color: AppColors.textDark),
                     decoration: InputDecoration(
-                      labelText: 'Filter Program',
+                      filled: true,
+                      fillColor: Colors.white,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
                       ),
                       contentPadding: const EdgeInsets.symmetric(
                           horizontal: 14, vertical: 12),
@@ -143,15 +177,31 @@ class _DatabasePageState extends State<DatabasePage> {
                     onChanged: (val) => setState(() => _selectedProgram = val!),
                   ),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  flex: 2,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: SizedBox(
+                  height: 44,
                   child: DropdownButtonFormField<String>(
                     initialValue: _selectedStatus,
+                    isExpanded: true,
+                    style: const TextStyle(
+                        fontSize: 13.5, color: AppColors.textDark),
                     decoration: InputDecoration(
-                      labelText: 'Filter Status',
+                      filled: true,
+                      fillColor: Colors.white,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
                       ),
                       contentPadding: const EdgeInsets.symmetric(
                           horizontal: 14, vertical: 12),
@@ -169,26 +219,28 @@ class _DatabasePageState extends State<DatabasePage> {
                     onChanged: (val) => setState(() => _selectedStatus = val!),
                   ),
                 ),
-                const SizedBox(width: 16),
-                ElevatedButton.icon(
-                  onPressed: () {},
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.heroButton,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
+              ),
+              const SizedBox(width: 12),
+              ElevatedButton.icon(
+                onPressed: () {},
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.heroButton,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  minimumSize: const Size(0, 44),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  icon: const Icon(Icons.download_rounded, size: 18),
-                  label: const Text('Export Excel'),
                 ),
-              ],
-            ),
+                icon: const Icon(Icons.download_rounded, size: 18),
+                label: const Text('Export Excel',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+              ),
+            ],
           ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
 
           // Data Table Card
           Container(
@@ -205,149 +257,345 @@ class _DatabasePageState extends State<DatabasePage> {
                 ),
               ],
             ),
-            child: Column(
-              children: [
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: DataTable(
-                    headingRowColor: WidgetStateProperty.all(AppColors.sectionLight),
-                    columns: const [
-                      DataColumn(label: Text('ID Pendaftaran', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('Nama Peserta', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('NIK', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('Program', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('No. WhatsApp', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('Tgl Daftar', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('Aksi', style: TextStyle(fontWeight: FontWeight.bold))),
-                    ],
-                    rows: filtered.map((item) {
-                      return DataRow(
-                        cells: [
-                          DataCell(Text(item['id']!, style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.primary))),
-                          DataCell(Text(item['nama']!, style: const TextStyle(fontWeight: FontWeight.bold))),
-                          DataCell(Text(item['nik']!)),
-                          DataCell(Text(item['program']!)),
-                          DataCell(Text(item['noHp']!)),
-                          DataCell(_buildStatusBadge(item['status']!)),
-                          DataCell(Text(item['tglDaftar']!)),
-                          DataCell(
+            child: filtered.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.all(40),
+                    child: Column(
+                      children: const [
+                        Icon(Icons.search_off_rounded,
+                            size: 48, color: AppColors.textMuted),
+                        SizedBox(height: 12),
+                        Text(
+                          'Tidak ada data peserta yang sesuai',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : Column(
+                    children: [
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final table = Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Container(
+                                color: AppColors.sectionLight,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 12),
+                                child: const Row(
+                                  children: [
+                                    Expanded(
+                                        flex: 2,
+                                        child: _TableHeaderText('ID Pendaftaran')),
+                                    Expanded(
+                                        flex: 3,
+                                        child: _TableHeaderText('Nama Peserta')),
+                                    Expanded(
+                                        flex: 3,
+                                        child: _TableHeaderText('NIK')),
+                                    Expanded(
+                                        flex: 2,
+                                        child: _TableHeaderText('Program')),
+                                    Expanded(
+                                        flex: 2,
+                                        child: _TableHeaderText('No. WhatsApp')),
+                                    Expanded(
+                                        flex: 2,
+                                        child: _TableHeaderText('Status')),
+                                    Expanded(
+                                        flex: 2,
+                                        child: _TableHeaderText('Tgl Daftar')),
+                                    Expanded(
+                                        flex: 2,
+                                        child: _TableHeaderText('Aksi')),
+                                  ],
+                                ),
+                              ),
+                              ...filtered.map((item) {
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    border: Border(
+                                      bottom: BorderSide(
+                                          color: AppColors.borderLight),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        flex: 2,
+                                        child: Text(
+                                          item['id']!,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            color: AppColors.primary,
+                                          ),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 3,
+                                        child: Text(
+                                          item['nama']!,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 3,
+                                        child: Text(
+                                          item['nik']!,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 2,
+                                        child: Text(
+                                          item['program']!,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 2,
+                                        child: Text(
+                                          item['noHp']!,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 2,
+                                        child: _buildStatusBadge(item['status']!),
+                                      ),
+                                      Expanded(
+                                        flex: 2,
+                                        child: Text(item['tglDaftar']!),
+                                      ),
+                                      Expanded(
+                                        flex: 2,
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            IconButton(
+                                              icon: const Icon(
+                                                  Icons.visibility_outlined,
+                                                  size: 18,
+                                                  color: AppColors.primary),
+                                              tooltip: 'Lihat Detail',
+                                              visualDensity:
+                                                  VisualDensity.compact,
+                                              onPressed: () {},
+                                            ),
+                                            IconButton(
+                                              icon: const Icon(
+                                                  Icons.edit_outlined,
+                                                  size: 18,
+                                                  color: Colors.orange),
+                                              tooltip: 'Edit Data',
+                                              visualDensity:
+                                                  VisualDensity.compact,
+                                              onPressed: () {},
+                                            ),
+                                            IconButton(
+                                              icon: const Icon(
+                                                  Icons.delete_outline_rounded,
+                                                  size: 18,
+                                                  color: Colors.redAccent),
+                                              tooltip: 'Hapus Data',
+                                              visualDensity:
+                                                  VisualDensity.compact,
+                                              onPressed: () =>
+                                                  _confirmDelete(item),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }),
+                            ],
+                          );
+
+                          if (constraints.maxWidth >= 900) {
+                            return table;
+                          }
+                          return SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: SizedBox(width: 900, child: table),
+                          );
+                        },
+                      ),
+
+                      const Divider(height: 1),
+
+                      // Table Footer
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 12),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Menampilkan ${filtered.length} dari ${_candidates.length} total peserta',
+                              style: const TextStyle(
+                                  fontSize: 12, color: AppColors.textMuted),
+                            ),
                             Row(
-                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                IconButton(
-                                  icon: const Icon(Icons.visibility_outlined, size: 18, color: AppColors.primary),
-                                  tooltip: 'Lihat Detail',
-                                  onPressed: () {},
+                                OutlinedButton(
+                                  onPressed: null,
+                                  style: OutlinedButton.styleFrom(
+                                      visualDensity:
+                                          VisualDensity.compact),
+                                  child: const Text('Sebelumnya'),
                                 ),
-                                IconButton(
-                                  icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.orange),
-                                  tooltip: 'Edit Data',
-                                  onPressed: () {},
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Text(
+                                    '1',
+                                    style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12),
+                                  ),
                                 ),
-                                IconButton(
-                                  icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.redAccent),
-                                  tooltip: 'Hapus Data',
-                                  onPressed: () {},
+                                const SizedBox(width: 8),
+                                OutlinedButton(
+                                  onPressed: null,
+                                  style: OutlinedButton.styleFrom(
+                                      visualDensity:
+                                          VisualDensity.compact),
+                                  child: const Text('Selanjutnya'),
                                 ),
                               ],
                             ),
-                          ),
-                        ],
-                      );
-                    }).toList(),
-                  ),
-                ),
-
-                const Divider(height: 1),
-
-                // Table Pagination
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Menampilkan ${filtered.length} dari ${_candidates.length} total peserta',
-                        style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
-                      ),
-                      Row(
-                        children: [
-                          OutlinedButton(
-                            onPressed: null,
-                            style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
-                            child: const Text('Sebelumnya'),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: const Text(
-                              '1',
-                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          OutlinedButton(
-                            onPressed: null,
-                            style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
-                            child: const Text('Selanjutnya'),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ],
                   ),
-                ),
-              ],
-            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildHeaderSection() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFFECFDF5),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFA7F3D0)),
-      ),
-      child: const Row(
-        children: [
-          CircleAvatar(
-            radius: 24,
-            backgroundColor: Color(0xFF10B981),
-            child: Icon(Icons.storage_rounded, color: Colors.white, size: 24),
-          ),
-          SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Database Pendaftaran Peserta',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textDark,
+  Future<void> _confirmDelete(Map<String, String> item) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.white,
+        constraints: const BoxConstraints(maxWidth: 360),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFEF2F2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: Colors.redAccent,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Hapus Data Peserta',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textDark,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Apakah Anda yakin ingin menghapus data peserta "${item['nama']}"? '
+                'Tindakan ini tidak dapat dibatalkan.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  height: 1.4,
+                  color: AppColors.textMuted,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        side: const BorderSide(color: AppColors.borderMedium),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text(
+                        'Batal',
+                        style: TextStyle(
+                          color: AppColors.textDark,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  'Kelola seluruh data peserta yang terdaftar, ekspor data, dan perbarui status verifikasi berkas.',
-                  style: TextStyle(fontSize: 13, color: AppColors.textMuted),
-                ),
-              ],
-            ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.redAccent,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text(
+                        'Hapus',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
+
+    if (confirmed == true && mounted) {
+      setState(() => _candidates.remove(item));
+    }
   }
 
   Widget _buildStatusBadge(String status) {
@@ -356,16 +604,16 @@ class _DatabasePageState extends State<DatabasePage> {
 
     switch (status) {
       case 'Terdaftar':
-        bg = const Color(0xFFECFDF5);
-        fg = const Color(0xFF059669);
+        bg = AppColors.badgeBgSuccess;
+        fg = AppColors.badgeTextSuccess;
         break;
       case 'Verifikasi Berkas':
-        bg = const Color(0xFFEFF6FF);
-        fg = const Color(0xFF2563EB);
+        bg = AppColors.badgeBgInfo;
+        fg = AppColors.badgeTextInfo;
         break;
       case 'Belum Lengkap':
-        bg = const Color(0xFFFFFBEB);
-        fg = const Color(0xFFD97706);
+        bg = AppColors.badgeBgWarning;
+        fg = AppColors.badgeTextWarning;
         break;
       default:
         bg = const Color(0xFFFEF2F2);
@@ -380,8 +628,24 @@ class _DatabasePageState extends State<DatabasePage> {
       ),
       child: Text(
         status,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: TextStyle(color: fg, fontWeight: FontWeight.bold, fontSize: 11),
       ),
+    );
+  }
+}
+
+class _TableHeaderText extends StatelessWidget {
+  final String text;
+
+  const _TableHeaderText(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
     );
   }
 }
