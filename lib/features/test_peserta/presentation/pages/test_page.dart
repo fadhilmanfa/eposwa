@@ -85,274 +85,467 @@ class _TestPageState extends State<TestPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header Card
-          _buildHeaderSection(),
+          // Title
+          const Text(
+            'Ujian & Penilaian Peserta',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textDark,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Pantau sesi ujian yang sedang berlangsung, skor penilaian, dan status hasil seleksi.',
+            style: TextStyle(fontSize: 13, color: AppColors.textMuted),
+          ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
 
-          // Filters & Search Bar
+          // Search & Filter
           Row(
             children: [
-              // Search input
               Expanded(
-                child: TextField(
-                  controller: _searchController,
-                  onChanged: (_) => setState(() {}),
-                  decoration: InputDecoration(
-                    hintText: 'Cari nama peserta atau NIK...',
-                    prefixIcon: const Icon(Icons.search_rounded),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
+                child: SizedBox(
+                  height: 44,
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (_) => setState(() {}),
+                    decoration: InputDecoration(
+                      hintText: 'Cari nama peserta atau NIK...',
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
                     ),
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 12),
                   ),
                 ),
               ),
               const SizedBox(width: 16),
-              // Filter Chips
               Wrap(
                 spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: ['Semua', 'Sedang Ujian', 'Lulus', 'Tidak Lulus', 'Belum Ujian']
                     .map((filter) {
                   final isSelected = _selectedFilter == filter;
-                  return ChoiceChip(
-                    label: Text(filter),
-                    selected: isSelected,
-                    selectedColor: AppColors.primary,
-                    labelStyle: TextStyle(
-                      color: isSelected ? Colors.white : AppColors.textDark,
-                      fontWeight:
-                          isSelected ? FontWeight.bold : FontWeight.normal,
+                  return InkWell(
+                    onTap: () => setState(() => _selectedFilter = filter),
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      height: 44,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppColors.primary
+                            : Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: isSelected
+                              ? AppColors.primary
+                              : AppColors.borderMedium,
+                        ),
+                      ),
+                      child: Text(
+                        filter,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: isSelected
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                          color: isSelected
+                              ? Colors.white
+                              : AppColors.textDark,
+                        ),
+                      ),
                     ),
-                    onSelected: (val) {
-                      if (val) setState(() => _selectedFilter = filter);
-                    },
                   );
                 }).toList(),
               ),
             ],
           ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
 
-          // List Sesi Test & Hasil
-          if (filteredList.isEmpty)
-            Container(
-              padding: const EdgeInsets.all(40),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.borderLight),
-              ),
-              child: const Column(
-                children: [
-                  Icon(Icons.search_off_rounded,
-                      size: 48, color: AppColors.textMuted),
-                  SizedBox(height: 12),
-                  Text(
-                    'Tidak ada data sesi ujian yang sesuai',
-                    style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textMuted),
-                  ),
-                ],
-              ),
-            )
-          else
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: filteredList.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final test = filteredList[index];
-                return _TestItemCard(test: test);
-              },
+          // Data Table Card
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.borderLight),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.02),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
+            child: filteredList.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.all(40),
+                    child: Column(
+                      children: const [
+                        Icon(Icons.search_off_rounded,
+                            size: 48, color: AppColors.textMuted),
+                        SizedBox(height: 12),
+                        Text(
+                          'Tidak ada data sesi ujian yang sesuai',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : Column(
+                    children: [
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final table = Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Container(
+                                color: AppColors.sectionLight,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 12),
+                                child: const Row(
+                                  children: [
+                                    Expanded(
+                                      flex: 3,
+                                      child: _TableHeaderText('Nama Peserta'),
+                                    ),
+                                    Expanded(
+                                        flex: 2,
+                                        child: _TableHeaderText('Tanggal')),
+                                    Expanded(
+                                        flex: 1,
+                                        child: _TableHeaderText('Skor')),
+                                    Expanded(
+                                        flex: 2,
+                                        child: _TableHeaderText('Status')),
+                                    Expanded(
+                                        flex: 2,
+                                        child: _TableHeaderText('Aksi')),
+                                  ],
+                                ),
+                              ),
+                              ...filteredList.map((test) {
+                                final status = test['status'] as String;
+                                final hasScore =
+                                    status == 'Lulus' || status == 'Tidak Lulus';
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    border: Border(
+                                      bottom: BorderSide(
+                                          color: AppColors.borderLight),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        flex: 3,
+                                        child: Text(
+                                          test['nama'],
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 2,
+                                        child: Text(test['tanggal']),
+                                      ),
+                                      Expanded(
+                                        flex: 1,
+                                        child: Text(
+                                          hasScore ? '${test['skor']}' : '-',
+                                          style: TextStyle(
+                                            fontWeight: hasScore
+                                                ? FontWeight.w600
+                                                : FontWeight.normal,
+                                            color: hasScore
+                                                ? AppColors.textDark
+                                                : AppColors.textMuted,
+                                          ),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 2,
+                                        child: _buildStatusBadge(status),
+                                      ),
+                                      Expanded(
+                                        flex: 2,
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            IconButton(
+                                              icon: const Icon(
+                                                  Icons.edit_outlined,
+                                                  size: 18,
+                                                  color: Colors.orange),
+                                              tooltip: 'Edit Data',
+                                              visualDensity:
+                                                  VisualDensity.compact,
+                                              onPressed: () {},
+                                            ),
+                                            IconButton(
+                                              icon: const Icon(
+                                                  Icons.delete_outline_rounded,
+                                                  size: 18,
+                                                  color: Colors.redAccent),
+                                              tooltip: 'Hapus Data',
+                                              visualDensity:
+                                                  VisualDensity.compact,
+                                              onPressed: () =>
+                                                  _confirmDelete(test),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }),
+                            ],
+                          );
+
+                          if (constraints.maxWidth >= 800) {
+                            return table;
+                          }
+                          return SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: SizedBox(width: 800, child: table),
+                          );
+                        },
+                      ),
+
+                      const Divider(height: 1),
+
+                      // Table Footer
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 12),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Menampilkan ${filteredList.length} dari ${_dummyTests.length} total peserta',
+                              style: const TextStyle(
+                                  fontSize: 12, color: AppColors.textMuted),
+                            ),
+                            Row(
+                              children: [
+                                OutlinedButton(
+                                  onPressed: null,
+                                  style: OutlinedButton.styleFrom(
+                                      visualDensity:
+                                          VisualDensity.compact),
+                                  child: const Text('Sebelumnya'),
+                                ),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Text(
+                                    '1',
+                                    style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                OutlinedButton(
+                                  onPressed: null,
+                                  style: OutlinedButton.styleFrom(
+                                      visualDensity:
+                                          VisualDensity.compact),
+                                  child: const Text('Selanjutnya'),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildHeaderSection() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF5F3FF),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFDDD6FE)),
-      ),
-      child: const Row(
-        children: [
-          CircleAvatar(
-            radius: 24,
-            backgroundColor: Color(0xFF8B5CF6),
-            child: Icon(Icons.assignment_turned_in_rounded,
-                color: Colors.white, size: 24),
-          ),
-          SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Ujian & Penilaian Peserta',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textDark,
+  Future<void> _confirmDelete(Map<String, dynamic> test) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.white,
+        constraints: const BoxConstraints(maxWidth: 360),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFEF2F2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: Colors.redAccent,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Hapus Data Ujian',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textDark,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Apakah Anda yakin ingin menghapus data ujian "${test['nama']}"? '
+                'Tindakan ini tidak dapat dibatalkan.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  height: 1.4,
+                  color: AppColors.textMuted,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        side: const BorderSide(color: AppColors.borderMedium),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text(
+                        'Batal',
+                        style: TextStyle(
+                          color: AppColors.textDark,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  'Pantau sesi ujian yang sedang berlangsung, skor penilaian, dan status hasil seleksi.',
-                  style: TextStyle(fontSize: 13, color: AppColors.textMuted),
-                ),
-              ],
-            ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.redAccent,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text(
+                        'Hapus',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-        ],
+        ),
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      setState(() => _dummyTests.remove(test));
+    }
+  }
+
+  Widget _buildStatusBadge(String status) {
+    Color bg;
+    Color fg;
+
+    switch (status) {
+      case 'Lulus':
+        bg = AppColors.badgeBgSuccess;
+        fg = AppColors.badgeTextSuccess;
+        break;
+      case 'Tidak Lulus':
+        bg = const Color(0xFFFEF2F2);
+        fg = Colors.redAccent;
+        break;
+      case 'Sedang Ujian':
+        bg = AppColors.badgeBgInfo;
+        fg = AppColors.badgeTextInfo;
+        break;
+      default:
+        bg = AppColors.sectionLight;
+        fg = AppColors.textMuted;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        status,
+        style: TextStyle(color: fg, fontWeight: FontWeight.bold, fontSize: 11),
       ),
     );
   }
 }
 
-class _TestItemCard extends StatelessWidget {
-  final Map<String, dynamic> test;
+class _TableHeaderText extends StatelessWidget {
+  final String text;
 
-  const _TestItemCard({required this.test});
+  const _TableHeaderText(this.text);
 
   @override
   Widget build(BuildContext context) {
-    final status = test['status'] as String;
-    Color statusColor;
-    Color statusBg;
-
-    switch (status) {
-      case 'Lulus':
-        statusColor = const Color(0xFF10B981);
-        statusBg = const Color(0xFFECFDF5);
-        break;
-      case 'Tidak Lulus':
-        statusColor = Colors.redAccent;
-        statusBg = const Color(0xFFFEF2F2);
-        break;
-      case 'Sedang Ujian':
-        statusColor = const Color(0xFF3B82F6);
-        statusBg = const Color(0xFFEFF6FF);
-        break;
-      default:
-        statusColor = AppColors.textMuted;
-        statusBg = AppColors.sectionLight;
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.borderLight),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 20,
-            backgroundColor: statusColor.withValues(alpha: 0.1),
-            child: Icon(
-              status == 'Lulus'
-                  ? Icons.check_rounded
-                  : (status == 'Sedang Ujian'
-                      ? Icons.timer_outlined
-                      : Icons.article_outlined),
-              color: statusColor,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            flex: 3,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  test['nama'],
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textDark,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'NIK: ${test['nik']} • ${test['program']}',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textMuted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  test['sesi'],
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textDark,
-                  ),
-                ),
-                Text(
-                  test['tanggal'],
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: AppColors.textMuted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-            decoration: BoxDecoration(
-              color: statusBg,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              status == 'Lulus' || status == 'Tidak Lulus'
-                  ? 'Skor: ${test['skor']} ($status)'
-                  : status,
-              style: TextStyle(
-                color: statusColor,
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          OutlinedButton(
-            onPressed: () {},
-            style: OutlinedButton.styleFrom(
-              visualDensity: VisualDensity.compact,
-            ),
-            child: const Text('Detail'),
-          ),
-        ],
-      ),
+    return Text(
+      text,
+      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
     );
   }
 }
