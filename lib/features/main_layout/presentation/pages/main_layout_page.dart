@@ -22,9 +22,10 @@ class MainLayoutPage extends StatefulWidget {
 
 class _MainLayoutPageState extends State<MainLayoutPage> {
   late int _selectedIndex;
+  bool _isSidebarCollapsed = false;
 
   final List<String> _pageTitles = const [
-    'Greeting & Dashboard Overview',
+    'Beranda',
     'Formulir Pendaftaran Peserta Baru',
     'Ujian & Penilaian Peserta',
     'Database Pendaftaran Peserta',
@@ -79,6 +80,24 @@ class _MainLayoutPageState extends State<MainLayoutPage> {
     );
   }
 
+  void _handleProfileMenu(String value) {
+    switch (value) {
+      case 'share':
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Fitur Berbagi Data belum tersedia')),
+        );
+        break;
+      case 'settings':
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Fitur Pengaturan belum tersedia')),
+        );
+        break;
+      case 'logout':
+        _handleLogout();
+        break;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -96,7 +115,10 @@ class _MainLayoutPageState extends State<MainLayoutPage> {
                 AppSidebar(
                   selectedIndex: _selectedIndex,
                   onItemSelected: _onSelectTab,
-                  onLogout: _handleLogout,
+                  isCollapsed: _isSidebarCollapsed,
+                  onToggleCollapsed: () => setState(
+                    () => _isSidebarCollapsed = !_isSidebarCollapsed,
+                  ),
                 ),
 
                 // Right Column: Dashboard Content Container
@@ -114,6 +136,7 @@ class _MainLayoutPageState extends State<MainLayoutPage> {
                             GreetingPage(onNavigate: _onSelectTab),
                             PendaftaranPage(
                               onSuccessSubmit: () => _onSelectTab(3), // Navigate to database on submit
+                              onSubmitAndContinue: () => _onSelectTab(2), // Navigate to exam on submit
                             ),
                             const TestPage(),
                             const DatabasePage(),
@@ -143,6 +166,24 @@ class _MainLayoutPageState extends State<MainLayoutPage> {
       ),
       child: Row(
         children: [
+          // Toggle Sidebar Collapse
+          IconButton(
+            icon: Icon(
+              _isSidebarCollapsed
+                  ? Icons.keyboard_double_arrow_right_rounded
+                  : Icons.keyboard_double_arrow_left_rounded,
+              size: 20,
+            ),
+            tooltip: _isSidebarCollapsed
+                ? 'Tampilkan Sidebar'
+                : 'Sembunyikan Sidebar',
+            onPressed: () => setState(
+              () => _isSidebarCollapsed = !_isSidebarCollapsed,
+            ),
+          ),
+
+          const SizedBox(width: 8),
+
           // Current Active Page Title
           Text(
             _pageTitles[_selectedIndex],
@@ -165,15 +206,81 @@ class _MainLayoutPageState extends State<MainLayoutPage> {
                 onPressed: () {},
               ),
               const SizedBox(width: 8),
-              const CircleAvatar(
-                radius: 14,
-                backgroundColor: AppColors.primary,
-                child: Text(
-                  'A',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+              PopupMenuButton<String>(
+                tooltip: 'Menu Profil',
+                offset: const Offset(0, 40),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                color: Colors.white,
+                onSelected: _handleProfileMenu,
+                itemBuilder: (context) => const [
+                  PopupMenuItem(
+                    value: 'share',
+                    child: Row(
+                      children: [
+                        Icon(Icons.share_outlined,
+                            size: 18, color: AppColors.textDark),
+                        SizedBox(width: 10),
+                        Text(
+                          'Berbagi Data',
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            fontFamily: 'Inter',
+                            color: AppColors.textDark,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'settings',
+                    child: Row(
+                      children: [
+                        Icon(Icons.settings_outlined,
+                            size: 18, color: AppColors.textDark),
+                        SizedBox(width: 10),
+                        Text(
+                          'Pengaturan',
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            fontFamily: 'Inter',
+                            color: AppColors.textDark,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  PopupMenuDivider(),
+                  PopupMenuItem(
+                    value: 'logout',
+                    child: Row(
+                      children: [
+                        Icon(Icons.logout_rounded,
+                            size: 18, color: Color(0xFFEF4444)),
+                        SizedBox(width: 10),
+                        Text(
+                          'Keluar',
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            fontFamily: 'Inter',
+                            color: Color(0xFFEF4444),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                child: const CircleAvatar(
+                  radius: 14,
+                  backgroundColor: AppColors.primary,
+                  child: Text(
+                    'A',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),

@@ -3,11 +3,11 @@ import 'package:eposwa/core/constants/app_colors.dart';
 
 /// Halaman Greeting & Dashboard Overview - Minimalis dengan Grafik Harian.
 class GreetingPage extends StatelessWidget {
-  final ValueChanged<int> onNavigate;
+  final ValueChanged<int>? onNavigate;
 
   const GreetingPage({
     super.key,
-    required this.onNavigate,
+    this.onNavigate,
   });
 
   @override
@@ -38,48 +38,25 @@ class GreetingPage extends StatelessWidget {
   }
 
   Widget _buildMinimalHeader() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: CrossAxisAlignment.center,
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Halo, Administrator 👋',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textDark,
-                fontFamily: 'Inter',
-                letterSpacing: -0.5,
-              ),
-            ),
-            SizedBox(height: 4),
-            Text(
-              'Ringkasan pendaftaran dan aktivitas peserta minggu ini.',
-              style: TextStyle(
-                fontSize: 13.5,
-                color: AppColors.textMuted,
-              ),
-            ),
-          ],
-        ),
-        ElevatedButton.icon(
-          onPressed: () => onNavigate(1), // Navigasi ke Form Pendaftaran
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
-            elevation: 0,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
+        Text(
+          'Halo, Administrator 👋',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textDark,
+            fontFamily: 'Inter',
+            letterSpacing: -0.5,
           ),
-          icon: const Icon(Icons.add_rounded, size: 18),
-          label: const Text(
-            'Pendaftaran Baru',
-            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
+        ),
+        SizedBox(height: 4),
+        Text(
+          'Ringkasan pendaftaran dan aktivitas peserta minggu ini.',
+          style: TextStyle(
+            fontSize: 13.5,
+            color: AppColors.textMuted,
           ),
         ),
       ],

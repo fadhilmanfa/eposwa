@@ -18,7 +18,7 @@ class _LoginPageState extends State<LoginPage> {
 
   bool _obscurePassword = true;
   bool _rememberMe = false;
-  bool _isLoading = false;
+  final bool _isLoading = false;
 
   @override
   void dispose() {

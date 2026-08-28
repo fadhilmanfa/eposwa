@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:eposwa/main.dart';
+import 'package:eposwa/core/theme/app_theme.dart';
+import 'package:eposwa/features/beranda/presentation/pages/beranda_page.dart';
 
 void main() {
   testWidgets('Beranda minimalist layout renders correctly on desktop resolution', (WidgetTester tester) async {
@@ -10,13 +11,17 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const MyApp());
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: const BerandaPage(),
+      ),
+    );
     await tester.pumpAndSettle();
 
     // Brand and Navbar
     expect(find.text('ePOSWA'), findsWidgets);
-    expect(find.text('Beranda'), findsOneWidget);
-    expect(find.text('Layanan'), findsOneWidget);
+    expect(find.text('Masuk'), findsOneWidget);
 
     // Hero Section
     expect(
