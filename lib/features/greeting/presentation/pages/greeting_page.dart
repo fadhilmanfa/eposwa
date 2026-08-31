@@ -51,14 +51,6 @@ class GreetingPage extends StatelessWidget {
             letterSpacing: -0.5,
           ),
         ),
-        SizedBox(height: 4),
-        Text(
-          'Ringkasan pendaftaran dan aktivitas peserta minggu ini.',
-          style: TextStyle(
-            fontSize: 13.5,
-            color: AppColors.textMuted,
-          ),
-        ),
       ],
     );
   }

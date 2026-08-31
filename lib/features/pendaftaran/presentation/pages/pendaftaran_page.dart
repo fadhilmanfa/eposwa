@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:eposwa/core/constants/app_colors.dart';
+import 'package:eposwa/features/pendaftaran/data/pendaftar_store.dart';
 
 class PendaftaranPage extends StatefulWidget {
   final VoidCallback? onSuccessSubmit;
@@ -73,6 +74,8 @@ class _PendaftaranPageState extends State<PendaftaranPage> {
 
     setState(() => _isSubmitting = false);
 
+    _simpanKeStore();
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -120,8 +123,20 @@ class _PendaftaranPageState extends State<PendaftaranPage> {
 
     setState(() => _isSubmitting = false);
 
+    _simpanKeStore();
+
     _resetForm();
     widget.onSubmitAndContinue?.call();
+  }
+
+  void _simpanKeStore() {
+    PendaftarStore.instance.add(
+      Pendaftar(
+        nama: _namaController.text.trim(),
+        nik: _nikController.text.trim(),
+        program: '-',
+      ),
+    );
   }
 
   void _resetForm() {

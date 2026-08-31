@@ -27,7 +27,7 @@ class _MainLayoutPageState extends State<MainLayoutPage> {
   final List<String> _pageTitles = const [
     'Beranda',
     'Formulir Pendaftaran Peserta Baru',
-    'Ujian & Penilaian Peserta',
+    'Skrining & Penilaian Jiwa',
     'Database Pendaftaran Peserta',
   ];
 
@@ -136,7 +136,7 @@ class _MainLayoutPageState extends State<MainLayoutPage> {
                             GreetingPage(onNavigate: _onSelectTab),
                             PendaftaranPage(
                               onSuccessSubmit: () => _onSelectTab(3), // Navigate to database on submit
-                              onSubmitAndContinue: () => _onSelectTab(2), // Navigate to exam on submit
+                              onSubmitAndContinue: () => _onSelectTab(2), // Navigate to skrining on submit
                             ),
                             const TestPage(),
                             const DatabasePage(),

@@ -55,9 +55,9 @@ class _AppSidebarState extends State<AppSidebar> {
     ),
     SidebarItemData(
       index: 2,
-      title: 'Ujian & Penilaian',
-      icon: Icons.assignment_outlined,
-      activeIcon: Icons.assignment_rounded,
+      title: 'Skrining & Penilaian',
+      icon: Icons.fact_check_outlined,
+      activeIcon: Icons.fact_check_rounded,
     ),
     SidebarItemData(
       index: 3,
