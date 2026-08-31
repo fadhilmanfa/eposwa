@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:eposwa/core/constants/app_colors.dart';
+import 'package:eposwa/core/responsive/app_responsive.dart';
+import 'package:eposwa/core/widgets/excel_table.dart';
 
 class DatabasePage extends StatefulWidget {
   const DatabasePage({super.key});
@@ -10,7 +12,6 @@ class DatabasePage extends StatefulWidget {
 
 class _DatabasePageState extends State<DatabasePage> {
   final TextEditingController _searchController = TextEditingController();
-  String _selectedProgram = 'Semua';
   String _selectedStatus = 'Semua';
 
   final List<Map<String, String>> _candidates = [
@@ -70,16 +71,13 @@ class _DatabasePageState extends State<DatabasePage> {
   @override
   Widget build(BuildContext context) {
     final filtered = _candidates.where((item) {
-      final matchesSearch = item['nama']!
-              .toLowerCase()
-              .contains(_searchController.text.toLowerCase()) ||
-          item['nik']!.contains(_searchController.text) ||
-          item['id']!.toLowerCase().contains(_searchController.text.toLowerCase());
-      final matchesProgram = _selectedProgram == 'Semua' ||
-          item['program'] == _selectedProgram;
+      final q = _searchController.text.toLowerCase();
+      final matchesSearch = q.isEmpty ||
+          item['nama']!.toLowerCase().contains(q) ||
+          item['nik']!.contains(q);
       final matchesStatus =
           _selectedStatus == 'Semua' || item['status'] == _selectedStatus;
-      return matchesSearch && matchesProgram && matchesStatus;
+      return matchesSearch && matchesStatus;
     }).toList();
 
     return SingleChildScrollView(
@@ -88,174 +86,188 @@ class _DatabasePageState extends State<DatabasePage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Title
-          const Text(
+          Text(
             'Database Pendaftaran Peserta',
             style: TextStyle(
-              fontSize: 20,
+              fontSize: context.scaleText(20, expanded: 22, large: 24),
               fontWeight: FontWeight.bold,
               color: AppColors.textDark,
             ),
           ),
-          const SizedBox(height: 4),
-          const Text(
-            'Kelola seluruh data peserta yang terdaftar, ekspor data, dan perbarui status verifikasi berkas.',
-            style: TextStyle(fontSize: 13, color: AppColors.textMuted),
-          ),
 
           const SizedBox(height: 20),
 
-          // Search & Filter
-          Row(
-            children: [
-              Expanded(
-                flex: 3,
-                child: SizedBox(
-                  height: 44,
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: (_) => setState(() {}),
-                    decoration: InputDecoration(
-                      hintText: 'Cari ID Pendaftaran, Nama, NIK...',
-                      prefixIcon: const Icon(Icons.search_rounded),
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide.none,
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide.none,
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 12),
+          // Search & Filter — disamakan dengan Skrining & Penilaian
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final searchField = SizedBox(
+                height: 44,
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: (_) => setState(() {}),
+                  decoration: InputDecoration(
+                    hintText: 'Cari Nama, NIK...',
+                    prefixIcon: const Icon(Icons.search_rounded),
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide.none,
                     ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 12),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                flex: 2,
-                child: SizedBox(
-                  height: 44,
-                  child: DropdownButtonFormField<String>(
-                    initialValue: _selectedProgram,
-                    isExpanded: true,
-                    style: const TextStyle(
-                        fontSize: 13.5, color: AppColors.textDark),
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide.none,
+              );
+
+              final isFilterActive = _selectedStatus != 'Semua';
+              final filterLabel = isFilterActive
+                  ? 'Filter: $_selectedStatus'
+                  : 'Filter';
+
+              const statusOptions = [
+                'Semua',
+                'Terdaftar',
+                'Verifikasi Berkas',
+                'Belum Lengkap',
+                'Ditolak',
+              ];
+
+              PopupMenuItem<String> buildOption(String value, bool selected) {
+                return PopupMenuItem<String>(
+                  value: value,
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 20,
+                        child: selected
+                            ? const Icon(Icons.check_rounded,
+                                size: 16, color: AppColors.primary)
+                            : null,
                       ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide.none,
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          value.split(':').last,
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            fontWeight:
+                                selected ? FontWeight.w700 : FontWeight.w500,
+                            color: selected
+                                ? AppColors.primary
+                                : AppColors.textDark,
+                          ),
+                        ),
                       ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 12),
-                    ),
-                    items: const [
-                      DropdownMenuItem(value: 'Semua', child: Text('Semua Program')),
-                      DropdownMenuItem(
-                          value: 'Regular Pagi', child: Text('Regular Pagi')),
-                      DropdownMenuItem(
-                          value: 'Regular Sore', child: Text('Regular Sore')),
-                      DropdownMenuItem(
-                          value: 'Eksekutif', child: Text('Eksekutif')),
                     ],
-                    onChanged: (val) => setState(() => _selectedProgram = val!),
                   ),
+                );
+              }
+
+              final filterBtn = PopupMenuButton<String>(
+                offset: const Offset(0, 48),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                flex: 2,
-                child: SizedBox(
+                color: Colors.white,
+                onSelected: (v) => setState(() => _selectedStatus = v),
+                itemBuilder: (context) => [
+                  for (final s in statusOptions)
+                    buildOption(s, _selectedStatus == s),
+                ],
+                child: Container(
                   height: 44,
-                  child: DropdownButtonFormField<String>(
-                    initialValue: _selectedStatus,
-                    isExpanded: true,
-                    style: const TextStyle(
-                        fontSize: 13.5, color: AppColors.textDark),
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide.none,
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide.none,
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 12),
-                    ),
-                    items: const [
-                      DropdownMenuItem(value: 'Semua', child: Text('Semua Status')),
-                      DropdownMenuItem(
-                          value: 'Terdaftar', child: Text('Terdaftar')),
-                      DropdownMenuItem(
-                          value: 'Verifikasi Berkas', child: Text('Verifikasi Berkas')),
-                      DropdownMenuItem(
-                          value: 'Belum Lengkap', child: Text('Belum Lengkap')),
-                      DropdownMenuItem(value: 'Ditolak', child: Text('Ditolak')),
-                    ],
-                    onChanged: (val) => setState(() => _selectedStatus = val!),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              ElevatedButton.icon(
-                onPressed: () {},
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.heroButton,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  minimumSize: const Size(0, 44),
+                  alignment: Alignment.center,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  shape: RoundedRectangleBorder(
+                  decoration: BoxDecoration(
+                    color: isFilterActive
+                        ? AppColors.primary.withValues(alpha: 0.08)
+                        : Colors.white,
                     borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: isFilterActive
+                          ? AppColors.primary
+                          : AppColors.borderMedium,
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.filter_list_rounded,
+                        size: 18,
+                        color: isFilterActive
+                            ? AppColors.primary
+                            : AppColors.textMuted,
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          filterLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize:
+                                context.scaleText(13, medium: 13.5, expanded: 14),
+                            fontWeight: FontWeight.w600,
+                            height: 1,
+                            color: isFilterActive
+                                ? AppColors.primary
+                                : AppColors.textDark,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.arrow_drop_down_rounded,
+                          size: 18, color: AppColors.textMuted),
+                    ],
                   ),
                 ),
-                icon: const Icon(Icons.download_rounded, size: 18),
-                label: const Text('Export Excel',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-              ),
-            ],
+              );
+
+              if (constraints.maxWidth >= 640) {
+                return Row(
+                  children: [
+                    Expanded(child: searchField),
+                    const SizedBox(width: 12),
+                    filterBtn,
+                  ],
+                );
+              }
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  searchField,
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: filterBtn,
+                  ),
+                ],
+              );
+            },
           ),
 
           const SizedBox(height: 20),
 
-          // Data Table Card
+          // Data Table Card - Excel-like
           Container(
             width: double.infinity,
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: AppColors.borderLight),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.02),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
             ),
             child: filtered.isEmpty
                 ? Padding(
@@ -278,181 +290,136 @@ class _DatabasePageState extends State<DatabasePage> {
                   )
                 : Column(
                     children: [
-                      LayoutBuilder(
-                        builder: (context, constraints) {
-                          final table = Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Container(
-                                color: AppColors.sectionLight,
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 12),
-                                child: const Row(
-                                  children: [
-                                    Expanded(
-                                        flex: 2,
-                                        child: _TableHeaderText('ID Pendaftaran')),
-                                    Expanded(
-                                        flex: 3,
-                                        child: _TableHeaderText('Nama Peserta')),
-                                    Expanded(
-                                        flex: 3,
-                                        child: _TableHeaderText('NIK')),
-                                    Expanded(
-                                        flex: 2,
-                                        child: _TableHeaderText('Program')),
-                                    Expanded(
-                                        flex: 2,
-                                        child: _TableHeaderText('No. WhatsApp')),
-                                    Expanded(
-                                        flex: 2,
-                                        child: _TableHeaderText('Status')),
-                                    Expanded(
-                                        flex: 2,
-                                        child: _TableHeaderText('Tgl Daftar')),
-                                    Expanded(
-                                        flex: 2,
-                                        child: _TableHeaderText('Aksi')),
-                                  ],
-                                ),
+                      ExcelTable(
+                        columns: const [
+                          ExcelColumn(
+                              label: 'Nama Peserta', flex: 3, minWidth: 150),
+                          ExcelColumn(label: 'NIK', flex: 3, minWidth: 150),
+                          ExcelColumn(label: 'Program', flex: 2, minWidth: 120),
+                          ExcelColumn(
+                              label: 'No. WhatsApp', flex: 2, minWidth: 130),
+                          ExcelColumn(label: 'Status', flex: 2, minWidth: 130),
+                          ExcelColumn(
+                              label: 'Tgl Daftar', flex: 1.4, minWidth: 100),
+                          ExcelColumn(label: 'Aksi', flex: 1.6, minWidth: 120),
+                        ],
+                        rows: filtered.map((item) {
+                          return [
+                            Text(
+                              item['nama']!,
+                              maxLines: 2,
+                              softWrap: true,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: context.scaleText(13.5,
+                                    medium: 14, expanded: 14.5),
+                                color: AppColors.textDark,
                               ),
-                              ...filtered.map((item) {
-                                return Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 16, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    border: Border(
-                                      bottom: BorderSide(
-                                          color: AppColors.borderLight),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        flex: 2,
-                                        child: Text(
-                                          item['id']!,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                            color: AppColors.primary,
-                                          ),
-                                        ),
-                                      ),
-                                      Expanded(
-                                        flex: 3,
-                                        child: Text(
-                                          item['nama']!,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                              fontWeight: FontWeight.bold),
-                                        ),
-                                      ),
-                                      Expanded(
-                                        flex: 3,
-                                        child: Text(
-                                          item['nik']!,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                      Expanded(
-                                        flex: 2,
-                                        child: Text(
-                                          item['program']!,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                      Expanded(
-                                        flex: 2,
-                                        child: Text(
-                                          item['noHp']!,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                      Expanded(
-                                        flex: 2,
-                                        child: _buildStatusBadge(item['status']!),
-                                      ),
-                                      Expanded(
-                                        flex: 2,
-                                        child: Text(item['tglDaftar']!),
-                                      ),
-                                      Expanded(
-                                        flex: 2,
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            IconButton(
-                                              icon: const Icon(
-                                                  Icons.visibility_outlined,
-                                                  size: 18,
-                                                  color: AppColors.primary),
-                                              tooltip: 'Lihat Detail',
-                                              visualDensity:
-                                                  VisualDensity.compact,
-                                              onPressed: () {},
-                                            ),
-                                            IconButton(
-                                              icon: const Icon(
-                                                  Icons.edit_outlined,
-                                                  size: 18,
-                                                  color: Colors.orange),
-                                              tooltip: 'Edit Data',
-                                              visualDensity:
-                                                  VisualDensity.compact,
-                                              onPressed: () {},
-                                            ),
-                                            IconButton(
-                                              icon: const Icon(
-                                                  Icons.delete_outline_rounded,
-                                                  size: 18,
-                                                  color: Colors.redAccent),
-                                              tooltip: 'Hapus Data',
-                                              visualDensity:
-                                                  VisualDensity.compact,
-                                              onPressed: () =>
-                                                  _confirmDelete(item),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              }),
-                            ],
-                          );
-
-                          if (constraints.maxWidth >= 900) {
-                            return table;
-                          }
-                          return SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: SizedBox(width: 900, child: table),
-                          );
-                        },
+                            ),
+                            Text(
+                              item['nik']!,
+                              maxLines: 1,
+                              softWrap: false,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  fontSize: context.scaleText(13,
+                                      medium: 13.5, expanded: 14)),
+                            ),
+                            Text(
+                              item['program']!,
+                              maxLines: 1,
+                              softWrap: false,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  fontSize: context.scaleText(13,
+                                      medium: 13.5, expanded: 14)),
+                            ),
+                            Text(
+                              item['noHp']!,
+                              maxLines: 1,
+                              softWrap: false,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  fontSize: context.scaleText(13,
+                                      medium: 13.5, expanded: 14)),
+                            ),
+                            _buildStatusBadge(item['status']!),
+                            Text(
+                              item['tglDaftar']!,
+                              maxLines: 1,
+                              softWrap: false,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  fontSize: context.scaleText(13,
+                                      medium: 13.5, expanded: 14)),
+                            ),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.visibility_outlined,
+                                      size: 18, color: AppColors.primary),
+                                  tooltip: 'Lihat Detail',
+                                  visualDensity: VisualDensity.compact,
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(
+                                      minWidth: 32, minHeight: 32),
+                                  onPressed: () {},
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.edit_outlined,
+                                      size: 18, color: Colors.orange),
+                                  tooltip: 'Edit Data',
+                                  visualDensity: VisualDensity.compact,
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(
+                                      minWidth: 32, minHeight: 32),
+                                  onPressed: () {},
+                                ),
+                                IconButton(
+                                  icon: const Icon(
+                                      Icons.delete_outline_rounded,
+                                      size: 18,
+                                      color: Colors.redAccent),
+                                  tooltip: 'Hapus Data',
+                                  visualDensity: VisualDensity.compact,
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(
+                                      minWidth: 32, minHeight: 32),
+                                  onPressed: () => _confirmDelete(item),
+                                ),
+                              ],
+                            ),
+                          ];
+                        }).toList(),
                       ),
-
                       const Divider(height: 1),
 
                       // Table Footer
                       Padding(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 20, vertical: 12),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        child: Wrap(
+                          alignment: WrapAlignment.spaceBetween,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 16,
+                          runSpacing: 8,
                           children: [
                             Text(
                               'Menampilkan ${filtered.length} dari ${_candidates.length} total peserta',
-                              style: const TextStyle(
-                                  fontSize: 12, color: AppColors.textMuted),
+                              style: TextStyle(
+                                  fontSize: context.scaleText(12,
+                                      medium: 12.5, expanded: 13),
+                                  color: AppColors.textMuted),
                             ),
                             Row(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
                                 OutlinedButton(
                                   onPressed: null,
@@ -469,12 +436,13 @@ class _DatabasePageState extends State<DatabasePage> {
                                     color: AppColors.primary,
                                     borderRadius: BorderRadius.circular(6),
                                   ),
-                                  child: const Text(
+                                  child: Text(
                                     '1',
                                     style: TextStyle(
                                         color: Colors.white,
                                         fontWeight: FontWeight.bold,
-                                        fontSize: 12),
+                                        fontSize: context.scaleText(12,
+                                            medium: 12.5, expanded: 13)),
                                   ),
                                 ),
                                 const SizedBox(width: 8),
@@ -629,23 +597,14 @@ class _DatabasePageState extends State<DatabasePage> {
       child: Text(
         status,
         maxLines: 1,
+        softWrap: false,
         overflow: TextOverflow.ellipsis,
-        style: TextStyle(color: fg, fontWeight: FontWeight.bold, fontSize: 11),
+        style: TextStyle(
+          color: fg,
+          fontWeight: FontWeight.bold,
+          fontSize: context.scaleText(11, medium: 11.5, expanded: 12),
+        ),
       ),
-    );
-  }
-}
-
-class _TableHeaderText extends StatelessWidget {
-  final String text;
-
-  const _TableHeaderText(this.text);
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
     );
   }
 }
