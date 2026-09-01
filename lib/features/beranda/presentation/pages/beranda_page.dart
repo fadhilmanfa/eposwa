@@ -98,15 +98,15 @@ class _BerandaPageState extends State<BerandaPage> {
                   ),
                 ),
 
-                // 3. SliverFillRemaining untuk mendorong footer ke dasar layar
+                // 3. SliverFillRemaining untuk mendorong footer ke dasar layar.
+                // Pakai Align (bukan Column + Spacer) agar tidak terjadi error
+                // RenderFlex saat tinggi window lebih kecil dari total konten
+                // di atasnya (jumbotron + menu grid sudah memenuhi viewport).
                 const SliverFillRemaining(
                   hasScrollBody: false,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Spacer(),
-                      BerandaFooter(),
-                    ],
+                  child: Align(
+                    alignment: Alignment.bottomCenter,
+                    child: BerandaFooter(),
                   ),
                 ),
               ],

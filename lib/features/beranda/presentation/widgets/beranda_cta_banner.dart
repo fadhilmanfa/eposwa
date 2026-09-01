@@ -4,10 +4,7 @@ import 'package:eposwa/core/responsive/app_responsive.dart';
 
 /// Section Call-To-Action (CTA) Banner sebelum Footer.
 class BerandaCtaBanner extends StatelessWidget {
-  const BerandaCtaBanner({
-    super.key,
-    this.onCtaPressed,
-  });
+  const BerandaCtaBanner({super.key, this.onCtaPressed});
 
   final VoidCallback? onCtaPressed;
 
@@ -53,9 +50,7 @@ class BerandaCtaBanner extends StatelessWidget {
 
               return Row(
                 children: [
-                  Expanded(
-                    child: _buildTextContent(context),
-                  ),
+                  Expanded(child: _buildTextContent(context)),
                   const SizedBox(width: 32),
                   _buildCtaButton(context, isFullWidth: false),
                 ],
@@ -80,19 +75,27 @@ class BerandaCtaBanner extends StatelessWidget {
                 color: Colors.white.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.headset_mic_rounded, size: 14, color: Colors.white),
-                  SizedBox(width: 6),
-                  Text(
-                    'LAYANAN KONSULTASI & BANTUAN',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                      letterSpacing: 0.6,
-                      fontFamily: 'Inter',
+                  const Icon(
+                    Icons.headset_mic_rounded,
+                    size: 14,
+                    color: Colors.white,
+                  ),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      'LAYANAN KONSULTASI & BANTUAN',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                        letterSpacing: 0.6,
+                        fontFamily: 'Inter',
+                      ),
                     ),
                   ),
                 ],
@@ -127,7 +130,8 @@ class BerandaCtaBanner extends StatelessWidget {
 
   Widget _buildCtaButton(BuildContext context, {required bool isFullWidth}) {
     final btn = ElevatedButton.icon(
-      onPressed: onCtaPressed ??
+      onPressed:
+          onCtaPressed ??
           () {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -137,16 +141,18 @@ class BerandaCtaBanner extends StatelessWidget {
               ),
             );
           },
-      icon: const Icon(Icons.forum_rounded, size: 18, color: AppColors.primaryDark),
+      icon: const Icon(
+        Icons.forum_rounded,
+        size: 18,
+        color: AppColors.primaryDark,
+      ),
       label: const Text('Mulai Konsultasi'),
       style: ElevatedButton.styleFrom(
         backgroundColor: Colors.white,
         foregroundColor: AppColors.primaryDark,
         elevation: 0,
         padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         textStyle: const TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w800,

@@ -55,8 +55,11 @@ class _BerandaNavbarState extends State<BerandaNavbar> {
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(
           children: [
-            // Brand Logo & Title
-            _buildBrand(context, isCompact: isCompact),
+            // Brand Logo & Title (Flexible agar tidak overflow saat window sempit)
+            Flexible(
+              fit: FlexFit.loose,
+              child: _buildBrand(context, isCompact: isCompact),
+            ),
 
             const SizedBox(width: 12),
 
@@ -74,26 +77,29 @@ class _BerandaNavbarState extends State<BerandaNavbar> {
     // Ukuran logo responsif: lebih besar di desktop, lebih kecil di compact (mobile)
     final logoHeight = isCompact ? 36.0 : 48.0;
     final umsHeight = isCompact ? 32.0 : 42.0;
+    // Sembunyikan logo UMS pada layar sangat sempit agar brand tidak overflow
+    final showUmsLogo = context.screenWidth >= 480;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Logo UMS - paling kiri
-        Image.asset(
-          'assets/images/ums.png',
-          height: umsHeight,
-          fit: BoxFit.contain,
-          errorBuilder: (context, error, stackTrace) =>
-              const SizedBox.shrink(),
-        ),
-        SizedBox(width: isCompact ? 8 : 12),
+        // Logo UMS - paling kiri (disembunyikan saat layar sangat sempit)
+        if (showUmsLogo) ...[
+          Image.asset(
+            'assets/images/ums.png',
+            height: umsHeight,
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) =>
+                const SizedBox.shrink(),
+          ),
+          SizedBox(width: isCompact ? 8 : 12),
+        ],
         // Logo Puskesmas
         Image.asset(
           'assets/images/puskesmas.png',
           height: logoHeight,
           fit: BoxFit.contain,
-          errorBuilder: (context, error, stackTrace) =>
-              const SizedBox.shrink(),
+          errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
         ),
 
         // Divider vertikal pemisah logo partner dengan brand
@@ -105,37 +111,42 @@ class _BerandaNavbarState extends State<BerandaNavbar> {
         ),
 
         // Brand ePOSWA - hanya teks, di kanan logo
-        MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: GestureDetector(
-            onTap: () => widget.onMenuSelected?.call('Beranda'),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'ePOSWA',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.primaryDark,
-                    letterSpacing: -0.5,
-                    fontFamily: 'Inter',
-                  ),
-                ),
-                if (!isCompact)
+        Flexible(
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: () => widget.onMenuSelected?.call('Beranda'),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   const Text(
-                    'Layanan Kesehatan Jiwa',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.textMuted,
-                      fontFamily: 'Inter',
-                    ),
+                    'ePOSWA',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.primaryDark,
+                      letterSpacing: -0.5,
+                      fontFamily: 'Inter',
+                    ),
                   ),
-              ],
+                  if (!isCompact)
+                    const Text(
+                      'Layanan Kesehatan Jiwa',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textMuted,
+                        fontFamily: 'Inter',
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                ],
+              ),
             ),
           ),
         ),
@@ -145,12 +156,13 @@ class _BerandaNavbarState extends State<BerandaNavbar> {
 
   Widget _buildCtaButton(BuildContext context, {required bool isCompact}) {
     return ElevatedButton.icon(
-      onPressed: widget.onLoginPressed ??
+      onPressed:
+          widget.onLoginPressed ??
           widget.onRegisterPressed ??
           () {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (context) => const LoginPage()),
-            );
+            Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (context) => const LoginPage()));
           },
       icon: const Icon(Icons.login_rounded, size: 16),
       label: const Text('Masuk'),
@@ -162,9 +174,7 @@ class _BerandaNavbarState extends State<BerandaNavbar> {
           horizontal: isCompact ? 12 : 16,
           vertical: isCompact ? 8 : 10,
         ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         textStyle: TextStyle(
           fontSize: isCompact ? 12 : 13,
           fontWeight: FontWeight.w700,

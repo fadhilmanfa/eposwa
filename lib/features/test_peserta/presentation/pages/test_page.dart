@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:eposwa/core/constants/app_colors.dart';
+import 'package:eposwa/core/database/app_database.dart' hide SkriningRecord;
 import 'package:eposwa/core/responsive/app_responsive.dart';
+import 'package:eposwa/core/services/export_service.dart';
+import 'package:eposwa/core/services/import_service.dart';
 import 'package:eposwa/core/widgets/excel_table.dart';
+import 'package:eposwa/features/skrining/data/skrining_repository.dart';
 import 'package:eposwa/features/skrining/domain/skrining_data.dart';
+import 'package:eposwa/features/skrining/presentation/pages/skrining_detail_page.dart';
 import 'package:eposwa/features/skrining/presentation/pages/skrining_form_page.dart';
 
 /// Halaman "Skrining & Penilaian" - daftar orang yang telah menjalani skrining jiwa.
@@ -16,39 +21,59 @@ class TestPage extends StatefulWidget {
 class _TestPageState extends State<TestPage> {
   String _selectedFilter = 'Semua';
   final TextEditingController _searchController = TextEditingController();
+  int? _sortColumnIndex;
+  SortDirection? _sortDirection;
+  List<SkriningWithPeserta> _items = [];
+  bool _loading = true;
+  late SkriningRepository _repo;
 
-  final List<SkriningRecord> _dummySkrining = [
-    const SkriningRecord(
-      nama: 'Ahmad Fauzi',
-      tanggal: '27 Agt 2026',
-      skor: 2,
-      kategori: SkriningKategori.rendah,
-    ),
-    const SkriningRecord(
-      nama: 'Siti Aminah',
-      tanggal: '27 Agt 2026',
-      skor: 5,
-      kategori: SkriningKategori.sedang,
-    ),
-    const SkriningRecord(
-      nama: 'Budi Santoso',
-      tanggal: '26 Agt 2026',
-      skor: 7,
-      kategori: SkriningKategori.tinggi,
-    ),
-    const SkriningRecord(
-      nama: 'Dina Mariana',
-      tanggal: '25 Agt 2026',
-      skor: 1,
-      kategori: SkriningKategori.rendah,
-    ),
-    const SkriningRecord(
-      nama: 'Eko Prasetyo',
-      tanggal: '24 Agt 2026',
-      kategori: SkriningKategori.kritis,
-      isRedFlag: true,
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _repo = SkriningRepository(getAppDatabase());
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    final list = await _repo.getAllWithPeserta();
+    if (!mounted) return;
+    setState(() {
+      _items = list;
+      _loading = false;
+    });
+  }
+
+  Future<void> _handleExport() async {
+    try {
+      final path = await ExportService.exportSql();
+      if (!mounted) return;
+      if (path == null) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Export dibatalkan')));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('SQL di-export: $path'), backgroundColor: AppColors.primary));
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal export: $e'), backgroundColor: Colors.redAccent));
+    }
+  }
+
+  Future<void> _handleImport() async {
+    try {
+      final result = await ImportService.importSqlWithDialog(context);
+      if (!mounted) return;
+      if (result == null) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Import dibatalkan')));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Import: ${result.imported} baru, ${result.skipped} lewati, ${result.replaced} timpa, ${result.merged} gabung'), backgroundColor: AppColors.primary));
+        await _load();
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal import: $e'), backgroundColor: Colors.redAccent));
+    }
+  }
 
   @override
   void dispose() {
@@ -61,49 +86,139 @@ class _TestPageState extends State<TestPage> {
       MaterialPageRoute(builder: (context) => const SkriningFormPage()),
     );
     if (record != null && mounted) {
-      setState(() => _dummySkrining.insert(0, record));
+      await _load();
+    }
+  }
+
+  Future<void> _openEdit(SkriningWithPeserta item) async {
+    // Convert to SkriningRecord for form
+    final rec = item.skrining;
+    final jawabanRows = await _repo.getJawaban(rec.id);
+    final jawaban = List<bool?>.generate(10, (i) {
+      final row = jawabanRows.where((j) => j.nomor == i + 1).firstOrNull;
+      return row?.jawaban;
+    });
+    final kategori = SkriningKategori.values.firstWhere((k) => k.name == rec.kategori, orElse: () => SkriningKategori.rendah);
+    final record = SkriningRecord(
+      nama: item.peserta.nama,
+      tanggal: rec.tanggal,
+      skor: rec.skor,
+      kategori: kategori,
+      isRedFlag: rec.isRedFlag,
+      jawaban: jawaban,
+    );
+    if (!mounted) return;
+    final updated = await Navigator.of(context).push<SkriningRecord>(
+      MaterialPageRoute(builder: (context) => SkriningFormPage(initialRecord: record)),
+    );
+    if (updated != null && mounted) {
+      // update DB record
+      final newKategori = updated.kategori.name;
+      final hasil = SkriningHasil.hitung(updated.jawaban);
+      await _repo.updateSkrining(
+        skriningId: rec.id,
+        tanggal: updated.tanggal,
+        skor: hasil.skor,
+        kategori: newKategori,
+        isRedFlag: hasil.isRedFlag,
+        rekomendasi: hasil.rekomendasi,
+        jawaban: updated.jawaban,
+      );
+      await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Data skrining "${updated.nama}" berhasil diperbarui.'), behavior: SnackBarBehavior.floating, backgroundColor: AppColors.primary),
+        );
+      }
+    }
+  }
+
+  void _onSort(int col) {
+    setState(() {
+      if (_sortColumnIndex != col) {
+        _sortColumnIndex = col;
+        _sortDirection = SortDirection.asc;
+      } else if (_sortDirection == SortDirection.asc) {
+        _sortDirection = SortDirection.desc;
+      } else {
+        _sortColumnIndex = null;
+        _sortDirection = null;
+      }
+    });
+  }
+
+  List<SkriningWithPeserta> _applySort(List<SkriningWithPeserta> source) {
+    final col = _sortColumnIndex;
+    if (col == null) return source;
+    final dir = _sortDirection == SortDirection.desc ? -1 : 1;
+    final sorted = List<SkriningWithPeserta>.from(source);
+    switch (col) {
+      case 0:
+        sorted.sort((a, b) => dir * a.peserta.nama.toLowerCase().compareTo(b.peserta.nama.toLowerCase()));
+        break;
+      case 1:
+        sorted.sort((a, b) => dir * _parseTanggal(a.skrining.tanggal).compareTo(_parseTanggal(b.skrining.tanggal)));
+        break;
+      case 2:
+        sorted.sort((a, b) => dir * (a.skrining.skor ?? 0).compareTo(b.skrining.skor ?? 0));
+        break;
+      case 3:
+        sorted.sort((a, b) => dir * a.skrining.kategori.compareTo(b.skrining.kategori));
+        break;
+    }
+    return sorted;
+  }
+
+  DateTime _parseTanggal(String s) {
+    final parts = s.split('/');
+    if (parts.length == 3) {
+      final d = int.tryParse(parts[0]);
+      final m = int.tryParse(parts[1]);
+      final y = int.tryParse(parts[2]);
+      if (d != null && m != null && y != null) {
+        return DateTime(y, m, d);
+      }
+    }
+    return DateTime(1970);
+  }
+
+  String _skorLabelDb(dynamic r) => (r.isRedFlag as bool) ? 'RED FLAG' : '${(r.skor as int?) ?? 0}';
+  String _kategoriLabel(String kategori) {
+    switch (kategori) {
+      case 'rendah':
+        return 'Risiko Rendah';
+      case 'sedang':
+        return 'Risiko Sedang';
+      case 'tinggi':
+        return 'Risiko Tinggi';
+      case 'kritis':
+        return 'KRITIS';
+      default:
+        return kategori;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final filteredList = _dummySkrining.where((item) {
-      final matchesFilter = _selectedFilter == 'Semua' ||
-          item.kategori.label.toLowerCase() ==
-              _selectedFilter.toLowerCase();
-      final matchesSearch = item.nama
-              .toLowerCase()
-              .contains(_searchController.text.toLowerCase()) ||
-          item.skorLabel.contains(_searchController.text);
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    final filteredList = _items.where((item) {
+      final kategoriLabel = _kategoriLabel(item.skrining.kategori);
+      final matchesFilter = _selectedFilter == 'Semua' || kategoriLabel.toLowerCase() == _selectedFilter.toLowerCase();
+      final q = _searchController.text.toLowerCase();
+      final matchesSearch = item.peserta.nama.toLowerCase().contains(q) ||
+          item.skrining.tanggal.toLowerCase().contains(q) ||
+          _skorLabelDb(item.skrining).toLowerCase().contains(q);
       return matchesFilter && matchesSearch;
     }).toList();
+    final sortedList = _applySort(filteredList);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Title
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 560),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Skrining & Penilaian Jiwa',
-                  style: TextStyle(
-                    fontSize: context.scaleText(20,
-                        expanded: 22, large: 24),
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textDark,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 20),
-
           // Search + Filter popup + Skrining Baru (kanan)
           LayoutBuilder(
             builder: (context, constraints) {
@@ -261,6 +376,29 @@ class _TestPageState extends State<TestPage> {
                 ),
               );
 
+              final exportBtn = OutlinedButton.icon(
+                onPressed: _handleExport,
+                icon: const Icon(Icons.upload_rounded, size: 16),
+                label: const Text('Export SQL'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  side: const BorderSide(color: AppColors.primary),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                ),
+              );
+              final importBtn = FilledButton.icon(
+                onPressed: _handleImport,
+                icon: const Icon(Icons.download_rounded, size: 16),
+                label: const Text('Import SQL'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                ),
+              );
+
               if (constraints.maxWidth >= 640) {
                 return Row(
                   children: [
@@ -269,6 +407,10 @@ class _TestPageState extends State<TestPage> {
                     filterBtn,
                     const SizedBox(width: 12),
                     skriningBtn,
+                    const SizedBox(width: 8),
+                    exportBtn,
+                    const SizedBox(width: 8),
+                    importBtn,
                   ],
                 );
               }
@@ -277,13 +419,7 @@ class _TestPageState extends State<TestPage> {
                 children: [
                   searchField,
                   const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      filterBtn,
-                      const Spacer(),
-                      skriningBtn,
-                    ],
-                  ),
+                  Wrap(spacing: 8, runSpacing: 8, children: [filterBtn, skriningBtn, exportBtn, importBtn]),
                 ],
               );
             },
@@ -324,23 +460,31 @@ class _TestPageState extends State<TestPage> {
                         columns: const [
                           ExcelColumn(
                               label: 'Nama Peserta', flex: 3, minWidth: 160),
-                          ExcelColumn(label: 'Tanggal', flex: 1.8, minWidth: 110),
+                          ExcelColumn(label: 'Tgl Daftar', flex: 1.8, minWidth: 110),
                           ExcelColumn(label: 'Skor', flex: 1, minWidth: 80),
                           ExcelColumn(
                               label: 'Kategori Risiko', flex: 2.2, minWidth: 140),
-                          ExcelColumn(label: 'Aksi', flex: 1.6, minWidth: 110),
+                          ExcelColumn(
+                              label: 'Aksi',
+                              flex: 2.2,
+                              minWidth: 130,
+                              sortable: false),
                         ],
-                        rows: filteredList.map((record) {
+                        sortColumnIndex: _sortColumnIndex,
+                        sortDirection: _sortDirection,
+                        onSort: _onSort,
+                        rows: sortedList.map((item) {
+                          final record = item.skrining;
+                          final nama = item.peserta.nama;
+                          final skorLabel = record.isRedFlag ? 'RED FLAG' : '${record.skor ?? 0}';
+                          final kategoriLabel = _kategoriLabel(record.kategori);
                           return [
                             Text(
-                              record.nama,
+                              nama,
                               maxLines: 2,
                               softWrap: true,
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: context.scaleText(13.5,
-                                      medium: 14, expanded: 14.5)),
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: context.scaleText(13.5, medium: 14, expanded: 14.5), color: AppColors.textDark),
                             ),
                             Text(
                               record.tanggal,
@@ -348,56 +492,48 @@ class _TestPageState extends State<TestPage> {
                               softWrap: false,
                               overflow: TextOverflow.ellipsis,
                               textAlign: TextAlign.center,
-                              style: TextStyle(
-                                  fontSize: context.scaleText(13,
-                                      medium: 13.5, expanded: 14)),
+                              style: TextStyle(fontSize: context.scaleText(13, medium: 13.5, expanded: 14)),
                             ),
                             Text(
-                              record.skorLabel,
+                              skorLabel,
                               maxLines: 1,
                               softWrap: false,
                               overflow: TextOverflow.ellipsis,
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                fontWeight: record.isRedFlag
-                                    ? FontWeight.w800
-                                    : FontWeight.w600,
-                                color: record.isRedFlag
-                                    ? Colors.redAccent
-                                    : AppColors.textDark,
-                                fontSize: context.scaleText(
-                                    record.isRedFlag ? 11 : 13.5,
-                                    medium: record.isRedFlag ? 11.5 : 14,
-                                    expanded:
-                                        record.isRedFlag ? 12 : 14.5),
+                                fontWeight: record.isRedFlag ? FontWeight.w800 : FontWeight.w600,
+                                color: record.isRedFlag ? Colors.redAccent : AppColors.textDark,
+                                fontSize: context.scaleText(record.isRedFlag ? 11 : 13.5, medium: record.isRedFlag ? 11.5 : 14, expanded: record.isRedFlag ? 12 : 14.5),
                               ),
                             ),
-                            _buildStatusBadge(record),
+                            _buildStatusBadgeForKategori(kategoriLabel, record.isRedFlag),
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 IconButton(
-                                  icon: const Icon(Icons.edit_outlined,
-                                      size: 18, color: Colors.orange),
+                                  icon: const Icon(Icons.visibility_outlined, size: 18, color: AppColors.primary),
+                                  tooltip: 'Lihat Detail',
+                                  visualDensity: VisualDensity.compact,
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                  onPressed: () => _showDetail(item),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.orange),
                                   tooltip: 'Edit Data',
                                   visualDensity: VisualDensity.compact,
                                   padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(
-                                      minWidth: 32, minHeight: 32),
-                                  onPressed: () {},
+                                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                  onPressed: () => _openEdit(item),
                                 ),
                                 IconButton(
-                                  icon: const Icon(
-                                      Icons.delete_outline_rounded,
-                                      size: 18,
-                                      color: Colors.redAccent),
+                                  icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.redAccent),
                                   tooltip: 'Hapus Data',
                                   visualDensity: VisualDensity.compact,
                                   padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(
-                                      minWidth: 32, minHeight: 32),
-                                  onPressed: () => _confirmDelete(record),
+                                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                  onPressed: () => _confirmDelete(item),
                                 ),
                               ],
                             ),
@@ -417,7 +553,7 @@ class _TestPageState extends State<TestPage> {
                           runSpacing: 8,
                           children: [
                             Text(
-                              'Menampilkan ${filteredList.length} dari ${_dummySkrining.length} total peserta',
+                              'Menampilkan ${sortedList.length} dari ${_items.length} total sesi',
                               style: TextStyle(
                                   fontSize: context.scaleText(12,
                                       medium: 12.5, expanded: 13),
@@ -471,93 +607,47 @@ class _TestPageState extends State<TestPage> {
     );
   }
 
-  Future<void> _confirmDelete(SkriningRecord record) async {
+  Future<void> _showDetail(SkriningWithPeserta item) async {
+    final rec = item.skrining;
+    final jawabanRows = await _repo.getJawaban(rec.id);
+    final jawaban = List<bool?>.generate(10, (i) {
+      final row = jawabanRows.where((j) => j.nomor == i + 1).firstOrNull;
+      return row?.jawaban;
+    });
+    final kategori = SkriningKategori.values.firstWhere((k) => k.name == rec.kategori, orElse: () => SkriningKategori.rendah);
+    final record = SkriningRecord(nama: item.peserta.nama, tanggal: rec.tanggal, skor: rec.skor, kategori: kategori, isRedFlag: rec.isRedFlag, jawaban: jawaban);
+    if (!mounted) return;
+    final updated = await Navigator.of(context).push<SkriningRecord>(MaterialPageRoute(builder: (_) => SkriningDetailPage(record: record)));
+    if (updated != null && mounted) {
+      final hasil = SkriningHasil.hitung(updated.jawaban);
+      await _repo.updateSkrining(skriningId: rec.id, tanggal: updated.tanggal, skor: hasil.skor, kategori: updated.kategori.name, isRedFlag: hasil.isRedFlag, rekomendasi: hasil.rekomendasi, jawaban: updated.jawaban);
+      await _load();
+    }
+  }
+
+  Future<void> _confirmDelete(SkriningWithPeserta item) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => Dialog(
         backgroundColor: Colors.white,
         constraints: const BoxConstraints(maxWidth: 360),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFFEF2F2),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.delete_outline_rounded,
-                  color: Colors.redAccent,
-                  size: 28,
-                ),
-              ),
+              Container(width: 56, height: 56, decoration: const BoxDecoration(color: Color(0xFFFEF2F2), shape: BoxShape.circle), child: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 28)),
               const SizedBox(height: 16),
-              const Text(
-                'Hapus Data Skrining',
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textDark,
-                ),
-              ),
+              const Text('Hapus Data Skrining', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.textDark)),
               const SizedBox(height: 8),
-              Text(
-                'Apakah Anda yakin ingin menghapus data skrining "${record.nama}"? '
-                'Tindakan ini tidak dapat dibatalkan.',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 13.5,
-                  height: 1.4,
-                  color: AppColors.textMuted,
-                ),
-              ),
+              Text('Apakah Anda yakin ingin menghapus data skrining "${item.peserta.nama}"? Tindakan ini tidak dapat dibatalkan.', textAlign: TextAlign.center, style: const TextStyle(fontSize: 13.5, height: 1.4, color: AppColors.textMuted)),
               const SizedBox(height: 24),
               Row(
                 children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        side: const BorderSide(color: AppColors.borderMedium),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      child: const Text(
-                        'Batal',
-                        style: TextStyle(
-                          color: AppColors.textDark,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
+                  Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(context, false), style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12), side: const BorderSide(color: AppColors.borderMedium), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))), child: const Text('Batal', style: TextStyle(color: AppColors.textDark, fontWeight: FontWeight.w600)))),
                   const SizedBox(width: 12),
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Colors.redAccent,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      child: const Text(
-                        'Hapus',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                  ),
+                  Expanded(child: FilledButton(onPressed: () => Navigator.pop(context, true), style: FilledButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))), child: const Text('Hapus', style: TextStyle(fontWeight: FontWeight.w600)))),
                 ],
               ),
             ],
@@ -565,56 +655,32 @@ class _TestPageState extends State<TestPage> {
         ),
       ),
     );
-
     if (confirmed == true && mounted) {
-      setState(() => _dummySkrining.remove(record));
+      await _repo.deleteSkrining(item.skrining.id);
+      await _load();
     }
   }
 
-  Widget _buildStatusBadge(SkriningRecord record) {
+  Widget _buildStatusBadgeForKategori(String label, bool isRedFlag) {
     Color bg;
     Color fg;
-
-    switch (record.kategori) {
-      case SkriningKategori.rendah:
-        bg = AppColors.badgeBgSuccess;
-        fg = AppColors.badgeTextSuccess;
-        break;
-      case SkriningKategori.sedang:
-        bg = AppColors.badgeBgWarning;
-        fg = AppColors.badgeTextWarning;
-        break;
-      case SkriningKategori.tinggi:
-        bg = const Color(0xFFFEF2F2);
-        fg = Colors.redAccent;
-        break;
-      case SkriningKategori.kritis:
-        bg = const Color(0xFFFEE2E2);
-        fg = const Color(0xFFB91C1C);
-        break;
+    if (label == 'Risiko Rendah') {
+      bg = AppColors.badgeBgSuccess;
+      fg = AppColors.badgeTextSuccess;
+    } else if (label == 'Risiko Sedang') {
+      bg = AppColors.badgeBgWarning;
+      fg = AppColors.badgeTextWarning;
+    } else if (label == 'Risiko Tinggi') {
+      bg = const Color(0xFFFEF2F2);
+      fg = Colors.redAccent;
+    } else {
+      bg = const Color(0xFFFEE2E2);
+      fg = const Color(0xFFB91C1C);
     }
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        record.kategori.label,
-        maxLines: 1,
-        softWrap: false,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: fg,
-          fontWeight: FontWeight.bold,
-          fontSize: context.scaleText(
-            record.isRedFlag ? 10.5 : 11.5,
-            medium: record.isRedFlag ? 11 : 12,
-            expanded: record.isRedFlag ? 11.5 : 12.5,
-          ),
-        ),
-      ),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
+      child: Text(label, maxLines: 1, softWrap: false, overflow: TextOverflow.ellipsis, style: TextStyle(color: fg, fontWeight: FontWeight.bold, fontSize: context.scaleText(isRedFlag ? 10.5 : 11.5, medium: isRedFlag ? 11 : 12, expanded: isRedFlag ? 11.5 : 12.5))),
     );
   }
 }

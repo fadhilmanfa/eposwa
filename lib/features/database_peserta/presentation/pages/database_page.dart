@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:eposwa/core/constants/app_colors.dart';
+import 'package:eposwa/core/database/app_database.dart';
 import 'package:eposwa/core/responsive/app_responsive.dart';
+import 'package:eposwa/core/services/export_service.dart';
+import 'package:eposwa/core/services/import_service.dart';
 import 'package:eposwa/core/widgets/excel_table.dart';
+import 'package:eposwa/features/pendaftaran/data/peserta_repository.dart';
 
 class DatabasePage extends StatefulWidget {
   const DatabasePage({super.key});
@@ -13,54 +17,114 @@ class DatabasePage extends StatefulWidget {
 class _DatabasePageState extends State<DatabasePage> {
   final TextEditingController _searchController = TextEditingController();
   String _selectedStatus = 'Semua';
+  int? _sortColumnIndex;
+  SortDirection? _sortDirection;
+  List<Peserta> _pesertas = [];
+  bool _loading = true;
+  late PesertaRepository _repo;
 
-  final List<Map<String, String>> _candidates = [
-    {
-      'id': 'REG-2026-001',
-      'nama': 'Ahmad Fauzi',
-      'nik': '3201984712040001',
-      'program': 'Regular Pagi',
-      'noHp': '081234567890',
-      'status': 'Terdaftar',
-      'tglDaftar': '27/08/2026',
-    },
-    {
-      'id': 'REG-2026-002',
-      'nama': 'Siti Aminah',
-      'nik': '3201984712040002',
-      'program': 'Regular Pagi',
-      'noHp': '081298765432',
-      'status': 'Terdaftar',
-      'tglDaftar': '27/08/2026',
-    },
-    {
-      'id': 'REG-2026-003',
-      'nama': 'Budi Santoso',
-      'nik': '3201984712040003',
-      'program': 'Eksekutif',
-      'noHp': '085712345678',
-      'status': 'Verifikasi Berkas',
-      'tglDaftar': '26/08/2026',
-    },
-    {
-      'id': 'REG-2026-004',
-      'nama': 'Dina Mariana',
-      'nik': '3201984712040004',
-      'program': 'Regular Sore',
-      'noHp': '081377889900',
-      'status': 'Belum Lengkap',
-      'tglDaftar': '25/08/2026',
-    },
-    {
-      'id': 'REG-2026-005',
-      'nama': 'Eko Prasetyo',
-      'nik': '3201984712040005',
-      'program': 'Regular Pagi',
-      'noHp': '089611223344',
-      'status': 'Ditolak',
-      'tglDaftar': '24/08/2026',
-    },
+  static const _statusOrder = [
+    'Terdaftar',
+    'Verifikasi Berkas',
+    'Belum Lengkap',
+    'Ditolak',
   ];
+
+  int _statusRank(String status) => _statusOrder.indexOf(status);
+
+  DateTime _parseTgl(String s) {
+    final parts = s.split('/');
+    if (parts.length == 3) {
+      final d = int.tryParse(parts[0]);
+      final m = int.tryParse(parts[1]);
+      final y = int.tryParse(parts[2]);
+      if (d != null && m != null && y != null) {
+        return DateTime(y, m, d);
+      }
+    }
+    return DateTime(1970);
+  }
+
+  void _onSort(int col) {
+    setState(() {
+      if (_sortColumnIndex != col) {
+        _sortColumnIndex = col;
+        _sortDirection = SortDirection.asc;
+      } else if (_sortDirection == SortDirection.asc) {
+        _sortDirection = SortDirection.desc;
+      } else {
+        _sortColumnIndex = null;
+        _sortDirection = null;
+      }
+    });
+  }
+
+  List<Peserta> _applySort(List<Peserta> source) {
+    final col = _sortColumnIndex;
+    if (col == null) return source;
+    final dir = _sortDirection == SortDirection.desc ? -1 : 1;
+    final sorted = List<Peserta>.from(source);
+    switch (col) {
+      case 0:
+        sorted.sort((a, b) => dir * a.nama.toLowerCase().compareTo(b.nama.toLowerCase()));
+        break;
+      case 1:
+        sorted.sort((a, b) => dir * _parseTgl(a.tglDaftar).compareTo(_parseTgl(b.tglDaftar)));
+        break;
+      case 3:
+        sorted.sort((a, b) => dir * _statusRank(a.status).compareTo(_statusRank(b.status)));
+        break;
+    }
+    return sorted;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _repo = PesertaRepository(getAppDatabase());
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    final list = await _repo.getAll();
+    if (!mounted) return;
+    setState(() {
+      _pesertas = list;
+      _loading = false;
+    });
+  }
+
+  Future<void> _handleExport() async {
+    try {
+      final path = await ExportService.exportSql();
+      if (!mounted) return;
+      if (path == null) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Export dibatalkan')));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('SQL di-export: $path'), backgroundColor: AppColors.primary));
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal export: $e'), backgroundColor: Colors.redAccent));
+    }
+  }
+
+  Future<void> _handleImport() async {
+    try {
+      final result = await ImportService.importSqlWithDialog(context);
+      if (!mounted) return;
+      if (result == null) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Import dibatalkan')));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Import: ${result.imported} baru, ${result.skipped} lewati, ${result.replaced} timpa, ${result.merged} gabung'), backgroundColor: AppColors.primary));
+        await _load();
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal import: $e'), backgroundColor: Colors.redAccent));
+    }
+  }
 
   @override
   void dispose() {
@@ -70,33 +134,25 @@ class _DatabasePageState extends State<DatabasePage> {
 
   @override
   Widget build(BuildContext context) {
-    final filtered = _candidates.where((item) {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    final filtered = _pesertas.where((item) {
       final q = _searchController.text.toLowerCase();
       final matchesSearch = q.isEmpty ||
-          item['nama']!.toLowerCase().contains(q) ||
-          item['nik']!.contains(q);
-      final matchesStatus =
-          _selectedStatus == 'Semua' || item['status'] == _selectedStatus;
+          item.nama.toLowerCase().contains(q) ||
+          item.noHp.contains(q) ||
+          item.tglDaftar.toLowerCase().contains(q);
+      final matchesStatus = _selectedStatus == 'Semua' || item.status == _selectedStatus;
       return matchesSearch && matchesStatus;
     }).toList();
+    final sorted = _applySort(filtered);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Title
-          Text(
-            'Database Pendaftaran Peserta',
-            style: TextStyle(
-              fontSize: context.scaleText(20, expanded: 22, large: 24),
-              fontWeight: FontWeight.bold,
-              color: AppColors.textDark,
-            ),
-          ),
-
-          const SizedBox(height: 20),
-
           // Search & Filter — disamakan dengan Skrining & Penilaian
           LayoutBuilder(
             builder: (context, constraints) {
@@ -106,7 +162,7 @@ class _DatabasePageState extends State<DatabasePage> {
                   controller: _searchController,
                   onChanged: (_) => setState(() {}),
                   decoration: InputDecoration(
-                    hintText: 'Cari Nama, NIK...',
+                    hintText: 'Cari Nama, No. WhatsApp...',
                     prefixIcon: const Icon(Icons.search_rounded),
                     filled: true,
                     fillColor: Colors.white,
@@ -236,12 +292,39 @@ class _DatabasePageState extends State<DatabasePage> {
                 ),
               );
 
+              final exportBtn = OutlinedButton.icon(
+                onPressed: _handleExport,
+                icon: const Icon(Icons.upload_rounded, size: 16),
+                label: const Text('Export SQL'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  side: const BorderSide(color: AppColors.primary),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                ),
+              );
+              final importBtn = FilledButton.icon(
+                onPressed: _handleImport,
+                icon: const Icon(Icons.download_rounded, size: 16),
+                label: const Text('Import SQL'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                ),
+              );
+
               if (constraints.maxWidth >= 640) {
                 return Row(
                   children: [
                     Expanded(child: searchField),
                     const SizedBox(width: 12),
                     filterBtn,
+                    const SizedBox(width: 8),
+                    exportBtn,
+                    const SizedBox(width: 8),
+                    importBtn,
                   ],
                 );
               }
@@ -250,10 +333,7 @@ class _DatabasePageState extends State<DatabasePage> {
                 children: [
                   searchField,
                   const SizedBox(height: 12),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: filterBtn,
-                  ),
+                  Wrap(spacing: 8, runSpacing: 8, children: [filterBtn, exportBtn, importBtn]),
                 ],
               );
             },
@@ -294,104 +374,79 @@ class _DatabasePageState extends State<DatabasePage> {
                         columns: const [
                           ExcelColumn(
                               label: 'Nama Peserta', flex: 3, minWidth: 150),
-                          ExcelColumn(label: 'NIK', flex: 3, minWidth: 150),
-                          ExcelColumn(label: 'Program', flex: 2, minWidth: 120),
                           ExcelColumn(
-                              label: 'No. WhatsApp', flex: 2, minWidth: 130),
+                              label: 'Tgl Daftar', flex: 1.4, minWidth: 110),
+                          ExcelColumn(
+                              label: 'No. WhatsApp',
+                              flex: 2,
+                              minWidth: 130,
+                              sortable: false),
                           ExcelColumn(label: 'Status', flex: 2, minWidth: 130),
                           ExcelColumn(
-                              label: 'Tgl Daftar', flex: 1.4, minWidth: 100),
-                          ExcelColumn(label: 'Aksi', flex: 1.6, minWidth: 120),
+                              label: 'Aksi',
+                              flex: 1.6,
+                              minWidth: 120,
+                              sortable: false),
                         ],
-                        rows: filtered.map((item) {
+                        sortColumnIndex: _sortColumnIndex,
+                        sortDirection: _sortDirection,
+                        onSort: _onSort,
+                        rows: sorted.map((item) {
                           return [
                             Text(
-                              item['nama']!,
+                              item.nama,
                               maxLines: 2,
                               softWrap: true,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                fontSize: context.scaleText(13.5,
-                                    medium: 14, expanded: 14.5),
+                                fontSize: context.scaleText(13.5, medium: 14, expanded: 14.5),
                                 color: AppColors.textDark,
                               ),
                             ),
                             Text(
-                              item['nik']!,
+                              item.tglDaftar,
                               maxLines: 1,
                               softWrap: false,
                               overflow: TextOverflow.ellipsis,
                               textAlign: TextAlign.center,
-                              style: TextStyle(
-                                  fontSize: context.scaleText(13,
-                                      medium: 13.5, expanded: 14)),
+                              style: TextStyle(fontSize: context.scaleText(13, medium: 13.5, expanded: 14)),
                             ),
                             Text(
-                              item['program']!,
+                              item.noHp,
                               maxLines: 1,
                               softWrap: false,
                               overflow: TextOverflow.ellipsis,
                               textAlign: TextAlign.center,
-                              style: TextStyle(
-                                  fontSize: context.scaleText(13,
-                                      medium: 13.5, expanded: 14)),
+                              style: TextStyle(fontSize: context.scaleText(13, medium: 13.5, expanded: 14)),
                             ),
-                            Text(
-                              item['noHp']!,
-                              maxLines: 1,
-                              softWrap: false,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                  fontSize: context.scaleText(13,
-                                      medium: 13.5, expanded: 14)),
-                            ),
-                            _buildStatusBadge(item['status']!),
-                            Text(
-                              item['tglDaftar']!,
-                              maxLines: 1,
-                              softWrap: false,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                  fontSize: context.scaleText(13,
-                                      medium: 13.5, expanded: 14)),
-                            ),
+                            _buildStatusBadge(item.status),
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 IconButton(
-                                  icon: const Icon(Icons.visibility_outlined,
-                                      size: 18, color: AppColors.primary),
+                                  icon: const Icon(Icons.visibility_outlined, size: 18, color: AppColors.primary),
                                   tooltip: 'Lihat Detail',
                                   visualDensity: VisualDensity.compact,
                                   padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(
-                                      minWidth: 32, minHeight: 32),
-                                  onPressed: () {},
+                                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                  onPressed: () => _showDetail(item),
                                 ),
                                 IconButton(
-                                  icon: const Icon(Icons.edit_outlined,
-                                      size: 18, color: Colors.orange),
+                                  icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.orange),
                                   tooltip: 'Edit Data',
                                   visualDensity: VisualDensity.compact,
                                   padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(
-                                      minWidth: 32, minHeight: 32),
+                                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                                   onPressed: () {},
                                 ),
                                 IconButton(
-                                  icon: const Icon(
-                                      Icons.delete_outline_rounded,
-                                      size: 18,
-                                      color: Colors.redAccent),
+                                  icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.redAccent),
                                   tooltip: 'Hapus Data',
                                   visualDensity: VisualDensity.compact,
                                   padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(
-                                      minWidth: 32, minHeight: 32),
+                                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                                   onPressed: () => _confirmDelete(item),
                                 ),
                               ],
@@ -412,7 +467,7 @@ class _DatabasePageState extends State<DatabasePage> {
                           runSpacing: 8,
                           children: [
                             Text(
-                              'Menampilkan ${filtered.length} dari ${_candidates.length} total peserta',
+                              'Menampilkan ${sorted.length} dari ${_pesertas.length} total peserta',
                               style: TextStyle(
                                   fontSize: context.scaleText(12,
                                       medium: 12.5, expanded: 13),
@@ -466,15 +521,108 @@ class _DatabasePageState extends State<DatabasePage> {
     );
   }
 
-  Future<void> _confirmDelete(Map<String, String> item) async {
+  Future<void> _showDetail(Peserta item) async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.white,
+        constraints: const BoxConstraints(maxWidth: 420),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.visibility_rounded, color: AppColors.primary, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text('Detail Peserta', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.textDark)),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 20),
+                    onPressed: () => Navigator.pop(context),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _detailRow('ID', item.kodePeserta),
+              _detailRow('Nama Peserta', item.nama),
+              _detailRow('NIK', item.nik),
+              _detailRow('Program', item.program),
+              _detailRow('No. WhatsApp', item.noHp),
+              Row(
+                children: [
+                  const SizedBox(width: 110, child: Text('Status', style: TextStyle(fontSize: 13, color: AppColors.textMuted))),
+                  Expanded(child: _buildStatusBadge(item.status)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              _detailRow('Tgl Daftar', item.tglDaftar),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: const Text('Tutup',
+                      style: TextStyle(fontWeight: FontWeight.w600)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _detailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 110,
+            child: Text(label,
+                style: const TextStyle(fontSize: 13, color: AppColors.textMuted)),
+          ),
+          Expanded(
+            child: Text(value,
+                style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textDark)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmDelete(Peserta item) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => Dialog(
         backgroundColor: Colors.white,
         constraints: const BoxConstraints(maxWidth: 360),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
           child: Column(
@@ -483,74 +631,30 @@ class _DatabasePageState extends State<DatabasePage> {
               Container(
                 width: 56,
                 height: 56,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFFEF2F2),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.delete_outline_rounded,
-                  color: Colors.redAccent,
-                  size: 28,
-                ),
+                decoration: const BoxDecoration(color: Color(0xFFFEF2F2), shape: BoxShape.circle),
+                child: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 28),
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Hapus Data Peserta',
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textDark,
-                ),
-              ),
+              const Text('Hapus Data Peserta', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.textDark)),
               const SizedBox(height: 8),
-              Text(
-                'Apakah Anda yakin ingin menghapus data peserta "${item['nama']}"? '
-                'Tindakan ini tidak dapat dibatalkan.',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 13.5,
-                  height: 1.4,
-                  color: AppColors.textMuted,
-                ),
-              ),
+              Text('Apakah Anda yakin ingin menghapus data peserta "${item.nama}"? Tindakan ini tidak dapat dibatalkan.',
+                  textAlign: TextAlign.center, style: const TextStyle(fontSize: 13.5, height: 1.4, color: AppColors.textMuted)),
               const SizedBox(height: 24),
               Row(
                 children: [
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () => Navigator.pop(context, false),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        side: const BorderSide(color: AppColors.borderMedium),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      child: const Text(
-                        'Batal',
-                        style: TextStyle(
-                          color: AppColors.textDark,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                      style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12), side: const BorderSide(color: AppColors.borderMedium), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                      child: const Text('Batal', style: TextStyle(color: AppColors.textDark, fontWeight: FontWeight.w600)),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: FilledButton(
                       onPressed: () => Navigator.pop(context, true),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Colors.redAccent,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      child: const Text(
-                        'Hapus',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
+                      style: FilledButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                      child: const Text('Hapus', style: TextStyle(fontWeight: FontWeight.w600)),
                     ),
                   ),
                 ],
@@ -560,9 +664,10 @@ class _DatabasePageState extends State<DatabasePage> {
         ),
       ),
     );
-
     if (confirmed == true && mounted) {
-      setState(() => _candidates.remove(item));
+      await _repo.deletePeserta(item.id);
+      await _load();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Peserta "${item.nama}" dihapus'), backgroundColor: Colors.redAccent));
     }
   }
 

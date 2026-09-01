@@ -5,9 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:eposwa/core/theme/app_theme.dart';
 import 'package:eposwa/core/widgets/app_splash_screen.dart';
+import 'package:eposwa/core/database/app_database.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // init database (creates file + seed if needed)
+  getAppDatabase();
 
   // Aktifkan frameless window hanya di Desktop (Windows/Linux/macOS).
   // Di Web & Mobile tetap pakai title bar sistem.
@@ -19,14 +22,15 @@ Future<void> main() async {
       center: true,
       backgroundColor: Colors.transparent,
       skipTaskbar: false,
-      titleBarStyle: TitleBarStyle.hidden, // hilangkan tombol silang/min/max sistem
+      titleBarStyle:
+          TitleBarStyle.hidden, // hilangkan tombol silang/min/max sistem
     );
 
     await windowManager.waitUntilReadyToShow(windowOptions, () async {
       await windowManager.show();
       await windowManager.focus();
-      // Optional: cegah ukuran terlalu kecil
-      await windowManager.setMinimumSize(const Size(900, 600));
+      // Cegah ukuran terlalu kecil (tetap memungkinkan layout compact tanpa overflow)
+      await windowManager.setMinimumSize(const Size(480, 480));
     });
   }
 

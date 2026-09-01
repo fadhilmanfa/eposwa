@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:eposwa/core/constants/app_colors.dart';
+import 'package:eposwa/core/database/app_database.dart';
+import 'package:eposwa/core/responsive/app_responsive.dart';
+import 'package:eposwa/core/services/session_service.dart';
+import 'package:eposwa/core/widgets/animated_segmented_selector.dart';
 import 'package:eposwa/features/pendaftaran/data/pendaftar_store.dart';
+import 'package:eposwa/features/pendaftaran/data/peserta_repository.dart';
 
 class PendaftaranPage extends StatefulWidget {
   final VoidCallback? onSuccessSubmit;
@@ -23,6 +28,7 @@ class _PendaftaranPageState extends State<PendaftaranPage> {
   final _namaController = TextEditingController();
   final _nikController = TextEditingController();
   final _alamatController = TextEditingController();
+  final _noHpController = TextEditingController();
 
   String _jenisKelamin = 'Laki-laki';
   String? _tglLahir;
@@ -38,6 +44,7 @@ class _PendaftaranPageState extends State<PendaftaranPage> {
     _namaController.dispose();
     _nikController.dispose();
     _alamatController.dispose();
+    _noHpController.dispose();
     super.dispose();
   }
 
@@ -81,10 +88,21 @@ class _PendaftaranPageState extends State<PendaftaranPage> {
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 26),
+            Icon(
+              Icons.check_circle_rounded,
+              color: Color(0xFF10B981),
+              size: 26,
+            ),
             SizedBox(width: 10),
-            Text('Pendaftaran Berhasil', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Expanded(
+              child: Text(
+                'Pendaftaran Berhasil',
+                softWrap: true,
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
           ],
         ),
         content: Text(
@@ -103,7 +121,9 @@ class _PendaftaranPageState extends State<PendaftaranPage> {
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.heroButton,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             child: const Text('OK'),
           ),
@@ -129,7 +149,8 @@ class _PendaftaranPageState extends State<PendaftaranPage> {
     widget.onSubmitAndContinue?.call();
   }
 
-  void _simpanKeStore() {
+  Future<void> _simpanKeStore() async {
+    // keep legacy store for backward compat
     PendaftarStore.instance.add(
       Pendaftar(
         nama: _namaController.text.trim(),
@@ -137,6 +158,26 @@ class _PendaftaranPageState extends State<PendaftaranPage> {
         program: '-',
       ),
     );
+    // also persist to DB
+    try {
+      final db = getAppDatabase();
+      final repo = PesertaRepository(db);
+      final existing = await repo.getByNik(_nikController.text.trim());
+      if (existing != null) return; // skip duplicate NIK
+      await repo.insertPeserta(
+        nama: _namaController.text.trim(),
+        nik: _nikController.text.trim(),
+        noHp: _noHpController.text.trim(),
+        jenisKelamin: _jenisKelamin,
+        tglLahir: _tglLahir,
+        alamat: _alamatController.text.trim().isEmpty ? null : _alamatController.text.trim(),
+        pernahKonsultasi: _pernahKonsultasi,
+        pernahDapatObat: _pernahDapatObat,
+        tglKunjungan: _tglLahir,
+        jamKunjungan: _jamKunjungan,
+        createdBy: SessionService.currentAdmin?.id,
+      );
+    } catch (_) {}
   }
 
   void _resetForm() {
@@ -144,6 +185,7 @@ class _PendaftaranPageState extends State<PendaftaranPage> {
     _namaController.clear();
     _nikController.clear();
     _alamatController.clear();
+    _noHpController.clear();
     setState(() {
       _jenisKelamin = 'Laki-laki';
       _tglLahir = null;
@@ -186,7 +228,7 @@ class _PendaftaranPageState extends State<PendaftaranPage> {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(28),
+      padding: EdgeInsets.all(context.scaleSpace(16, medium: 24, expanded: 28)),
       child: Center(
         child: Container(
           constraints: const BoxConstraints(maxWidth: 960),
@@ -202,56 +244,53 @@ class _PendaftaranPageState extends State<PendaftaranPage> {
                   icon: Icons.person_outline_rounded,
                   child: Column(
                     children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: _buildTextField(
-                              controller: _namaController,
-                              label: 'Nama Lengkap *',
-                              hint: 'Masukkan nama lengkap sesuai KTP',
-                              icon: Icons.badge_outlined,
-                              validator: (val) => val == null || val.isEmpty
-                                  ? 'Nama wajib diisi'
-                                  : null,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: _buildTextField(
-                              controller: _nikController,
-                              label: 'NIK *',
-                              hint: '16 digit NIK',
-                              icon: Icons.subtitles_outlined,
-                              keyboardType: TextInputType.number,
-                              validator: (val) => val == null || val.length < 16
-                                  ? 'NIK minimal 16 digit'
-                                  : null,
-                            ),
-                          ),
-                        ],
-                      ),
+                      _buildFieldRow([
+                        _buildTextField(
+                          controller: _namaController,
+                          label: 'Nama Lengkap *',
+                          hint: 'Masukkan nama lengkap sesuai KTP',
+                          icon: Icons.badge_outlined,
+                          validator: (val) => val == null || val.isEmpty
+                              ? 'Nama wajib diisi'
+                              : null,
+                        ),
+                        _buildTextField(
+                          controller: _nikController,
+                          label: 'NIK *',
+                          hint: '16 digit NIK',
+                          icon: Icons.subtitles_outlined,
+                          keyboardType: TextInputType.number,
+                          validator: (val) => val == null || val.length < 16
+                              ? 'NIK minimal 16 digit'
+                              : null,
+                        ),
+                      ]),
                       const SizedBox(height: 16),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: _buildTextField(
-                              controller: null,
-                              label: 'Tanggal Lahir *',
-                              hint: 'DD/MM/YYYY',
-                              icon: Icons.calendar_month_outlined,
-                              value: _tglLahir,
-                              onTap: _pickTanggalLahir,
-                              error:
-                                  _showJadwalError && _tglLahir == null,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: _buildGenderSelector(),
-                          ),
-                        ],
+                      _buildFieldRow([
+                        _buildTextField(
+                          controller: null,
+                          label: 'Tanggal Lahir *',
+                          hint: 'DD/MM/YYYY',
+                          icon: Icons.calendar_month_outlined,
+                          value: _tglLahir,
+                          onTap: _pickTanggalLahir,
+                          error: _showJadwalError && _tglLahir == null,
+                        ),
+                        _buildGenderSelector(),
+                      ]),
+                      const SizedBox(height: 16),
+                      _buildTextField(
+                        controller: _noHpController,
+                        label: 'No. HP / WhatsApp *',
+                        hint: '08xxxxxxxxxx',
+                        icon: Icons.phone_outlined,
+                        keyboardType: TextInputType.phone,
+                        validator: (val) {
+                          if (val == null || val.trim().isEmpty) return 'No. HP wajib diisi';
+                          final v = val.trim();
+                          if (!RegExp(r'^08\d{8,13}$').hasMatch(v)) return 'Format 08... 10-15 digit';
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 16),
                       _buildTextField(
@@ -278,17 +317,23 @@ class _PendaftaranPageState extends State<PendaftaranPage> {
                   child: Column(
                     children: [
                       _buildYaTidakRow(
-                        question: 'Apakah Anda pernah konsultasi jiwa sebelumnya?',
+                        question:
+                            'Apakah Anda pernah konsultasi jiwa sebelumnya?',
                         value: _pernahKonsultasi,
-                        showError: _showRiwayatError && _pernahKonsultasi == null,
-                        onChanged: (val) => setState(() => _pernahKonsultasi = val),
+                        showError:
+                            _showRiwayatError && _pernahKonsultasi == null,
+                        onChanged: (val) =>
+                            setState(() => _pernahKonsultasi = val),
                       ),
                       const SizedBox(height: 16),
                       _buildYaTidakRow(
-                        question: 'Apakah Anda pernah mendapatkan obat sebelumnya?',
+                        question:
+                            'Apakah Anda pernah mendapatkan obat sebelumnya?',
                         value: _pernahDapatObat,
-                        showError: _showRiwayatError && _pernahDapatObat == null,
-                        onChanged: (val) => setState(() => _pernahDapatObat = val),
+                        showError:
+                            _showRiwayatError && _pernahDapatObat == null,
+                        onChanged: (val) =>
+                            setState(() => _pernahDapatObat = val),
                       ),
                     ],
                   ),
@@ -301,67 +346,67 @@ class _PendaftaranPageState extends State<PendaftaranPage> {
                   title: 'Jadwal & Layanan',
                   subtitle: 'Pilih jadwal kunjungan yang diinginkan',
                   icon: Icons.event_available_outlined,
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: _buildTextField(
-                          controller: null,
-                          label: 'Tanggal Kunjungan *',
-                          hint: 'DD/MM/YYYY',
-                          icon: Icons.event_outlined,
-                          value: _tglLahir,
-                          onTap: _pickTanggalLahir,
-                          error:
-                              _showJadwalError && _tglLahir == null,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _buildTextField(
-                          controller: null,
-                          label: 'Jam Kunjungan *',
-                          hint: 'HH:MM',
-                          icon: Icons.access_time_rounded,
-                          value: _jamKunjungan,
-                          onTap: _pickJamKunjungan,
-                          error:
-                              _showJadwalError && _jamKunjungan == null,
-                        ),
-                      ),
-                    ],
-                  ),
+                  child: _buildFieldRow([
+                    _buildTextField(
+                      controller: null,
+                      label: 'Tanggal Kunjungan *',
+                      hint: 'DD/MM/YYYY',
+                      icon: Icons.event_outlined,
+                      value: _tglLahir,
+                      onTap: _pickTanggalLahir,
+                      error: _showJadwalError && _tglLahir == null,
+                    ),
+                    _buildTextField(
+                      controller: null,
+                      label: 'Jam Kunjungan *',
+                      hint: 'HH:MM',
+                      icon: Icons.access_time_rounded,
+                      value: _jamKunjungan,
+                      onTap: _pickJamKunjungan,
+                      error: _showJadwalError && _jamKunjungan == null,
+                    ),
+                  ]),
                 ),
 
                 const SizedBox(height: 32),
 
-                // Action Bar
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                // Action Bar (Wrap agar tombol turun ke baris berikutnya saat sempit)
+                Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: 12,
+                  runSpacing: 12,
                   children: [
                     OutlinedButton.icon(
                       onPressed: _resetForm,
                       style: OutlinedButton.styleFrom(
                         foregroundColor: const Color(0xFF64748B),
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 14),
+                          horizontal: 20,
+                          vertical: 14,
+                        ),
                         side: const BorderSide(color: Color(0xFFCBD5E1)),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
                       ),
                       icon: const Icon(Icons.refresh_rounded, size: 18),
-                      label: const Text('Reset Form', style: TextStyle(fontWeight: FontWeight.w600)),
+                      label: const Text(
+                        'Reset Form',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
                     ),
-                    const SizedBox(width: 12),
                     ElevatedButton.icon(
-                      onPressed: _isSubmitting ? null : _handleSubmitAndContinue,
+                      onPressed: _isSubmitting
+                          ? null
+                          : _handleSubmitAndContinue,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
                         elevation: 0,
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 14),
+                          horizontal: 20,
+                          vertical: 14,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
@@ -377,12 +422,15 @@ class _PendaftaranPageState extends State<PendaftaranPage> {
                             )
                           : const Icon(Icons.arrow_forward_rounded, size: 18),
                       label: Text(
-                        _isSubmitting ? 'Menyimpan...' : 'Simpan dan Lanjut Ujian',
+                        _isSubmitting
+                            ? 'Menyimpan...'
+                            : 'Simpan dan Lanjut Ujian',
                         style: const TextStyle(
-                            fontWeight: FontWeight.w700, fontSize: 14),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 12),
                     ElevatedButton.icon(
                       onPressed: _isSubmitting ? null : _handleSubmit,
                       style: ElevatedButton.styleFrom(
@@ -390,7 +438,9 @@ class _PendaftaranPageState extends State<PendaftaranPage> {
                         foregroundColor: Colors.white,
                         elevation: 0,
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 28, vertical: 14),
+                          horizontal: 28,
+                          vertical: 14,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
@@ -408,7 +458,9 @@ class _PendaftaranPageState extends State<PendaftaranPage> {
                       label: Text(
                         _isSubmitting ? 'Menyimpan...' : 'Simpan',
                         style: const TextStyle(
-                            fontWeight: FontWeight.w700, fontSize: 14),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                        ),
                       ),
                     ),
                   ],
@@ -423,6 +475,34 @@ class _PendaftaranPageState extends State<PendaftaranPage> {
     );
   }
 
+  /// Menyusun field berdampingan di layar lebar, dan menumpuk vertikal
+  /// saat layar compact agar tidak overflow.
+  Widget _buildFieldRow(List<Widget> fields) {
+    final isCompact = context.isCompact;
+
+    if (isCompact) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < fields.length; i++) ...[
+            if (i > 0) const SizedBox(height: 16),
+            fields[i],
+          ],
+        ],
+      );
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var i = 0; i < fields.length; i++) ...[
+          if (i > 0) const SizedBox(width: 16),
+          Expanded(child: fields[i]),
+        ],
+      ],
+    );
+  }
+
   Widget _buildSectionCard({
     required String title,
     required String subtitle,
@@ -430,7 +510,7 @@ class _PendaftaranPageState extends State<PendaftaranPage> {
     required Widget child,
   }) {
     return Container(
-      padding: const EdgeInsets.all(22),
+      padding: EdgeInsets.all(context.scaleSpace(16, medium: 20, expanded: 22)),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
@@ -440,30 +520,36 @@ class _PendaftaranPageState extends State<PendaftaranPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(icon, color: AppColors.heroButton, size: 20),
               const SizedBox(width: 10),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textDark,
-                      fontFamily: 'Inter',
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      softWrap: true,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textDark,
+                        fontFamily: 'Inter',
+                      ),
                     ),
-                  ),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      fontSize: 11.5,
-                      color: AppColors.textMuted,
-                      fontFamily: 'Inter',
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      softWrap: true,
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        color: AppColors.textMuted,
+                        fontFamily: 'Inter',
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
           ),
@@ -525,7 +611,10 @@ class _PendaftaranPageState extends State<PendaftaranPage> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: AppColors.heroButton, width: 1.5),
+              borderSide: const BorderSide(
+                color: AppColors.heroButton,
+                width: 1.5,
+              ),
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
@@ -535,7 +624,10 @@ class _PendaftaranPageState extends State<PendaftaranPage> {
               borderRadius: BorderRadius.circular(10),
               borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 12,
+            ),
           ),
         ),
         if (error)
@@ -564,33 +656,13 @@ class _PendaftaranPageState extends State<PendaftaranPage> {
           ),
         ),
         const SizedBox(height: 6),
-        Container(
-          height: 44,
-          padding: const EdgeInsets.all(3),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFAFAFA),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: _GenderChip(
-                  label: 'Laki-laki',
-                  isSelected: _jenisKelamin == 'Laki-laki',
-                  onTap: () => setState(() => _jenisKelamin = 'Laki-laki'),
-                ),
-              ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: _GenderChip(
-                  label: 'Perempuan',
-                  isSelected: _jenisKelamin == 'Perempuan',
-                  onTap: () => setState(() => _jenisKelamin = 'Perempuan'),
-                ),
-              ),
-            ],
-          ),
+        AnimatedSegmentedSelector<String>(
+          options: const [
+            SegmentedOption(value: 'Laki-laki', label: 'Laki-laki'),
+            SegmentedOption(value: 'Perempuan', label: 'Perempuan'),
+          ],
+          selected: _jenisKelamin,
+          onChanged: (v) => setState(() => _jenisKelamin = v),
         ),
       ],
     );
@@ -607,6 +679,7 @@ class _PendaftaranPageState extends State<PendaftaranPage> {
       children: [
         Text(
           question,
+          softWrap: true,
           style: const TextStyle(
             fontWeight: FontWeight.w600,
             fontSize: 12.5,
@@ -615,35 +688,14 @@ class _PendaftaranPageState extends State<PendaftaranPage> {
           ),
         ),
         const SizedBox(height: 6),
-        Container(
-          height: 44,
-          padding: const EdgeInsets.all(3),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFAFAFA),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: showError ? Colors.redAccent : const Color(0xFFE2E8F0),
-            ),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: _GenderChip(
-                  label: 'Ya',
-                  isSelected: value == true,
-                  onTap: () => onChanged(true),
-                ),
-              ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: _GenderChip(
-                  label: 'Tidak',
-                  isSelected: value == false,
-                  onTap: () => onChanged(false),
-                ),
-              ),
-            ],
-          ),
+        AnimatedSegmentedSelector<bool>(
+          options: const [
+            SegmentedOption(value: true, label: 'Ya'),
+            SegmentedOption(value: false, label: 'Tidak'),
+          ],
+          selected: value,
+          error: showError,
+          onChanged: onChanged,
         ),
         if (showError)
           const Padding(
@@ -654,43 +706,6 @@ class _PendaftaranPageState extends State<PendaftaranPage> {
             ),
           ),
       ],
-    );
-  }
-}
-
-class _GenderChip extends StatelessWidget {
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _GenderChip({
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.heroButton : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12.5,
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-            color: isSelected ? Colors.white : const Color(0xFF64748B),
-            fontFamily: 'Inter',
-          ),
-        ),
-      ),
     );
   }
 }

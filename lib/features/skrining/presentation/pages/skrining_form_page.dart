@@ -1,23 +1,50 @@
 import 'package:flutter/material.dart';
 import 'package:eposwa/core/constants/app_colors.dart';
+import 'package:eposwa/core/database/app_database.dart' hide SkriningRecord;
+import 'package:eposwa/core/services/session_service.dart';
+import 'package:eposwa/core/widgets/animated_segmented_selector.dart';
 import 'package:eposwa/core/widgets/custom_title_bar.dart';
 import 'package:eposwa/core/widgets/pendaftar_command_dialog.dart';
+import 'package:eposwa/features/pendaftaran/data/peserta_repository.dart';
+import 'package:eposwa/features/skrining/data/skrining_repository.dart';
 import 'package:eposwa/features/skrining/domain/skrining_data.dart';
 
 /// Form kuesioner skrining kesehatan jiwa (10 pertanyaan Ya/Tidak).
 /// Mengikuti aturan skrining "Panduan Skrining Posyandu Jiwa Digital".
 class SkriningFormPage extends StatefulWidget {
-  const SkriningFormPage({super.key});
+  final SkriningRecord? initialRecord;
+
+  const SkriningFormPage({super.key, this.initialRecord});
 
   @override
   State<SkriningFormPage> createState() => _SkriningFormPageState();
 }
 
 class _SkriningFormPageState extends State<SkriningFormPage> {
-  final TextEditingController _namaController = TextEditingController();
-  final List<bool?> _jawaban = List<bool?>.filled(10, null);
+  late final TextEditingController _namaController;
+  late final List<bool?> _jawaban;
 
   SkriningHasil? _hasil;
+
+  bool get _isEditing => widget.initialRecord != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initialRecord;
+    _namaController = TextEditingController(text: initial?.nama ?? '');
+    if (initial != null) {
+      _jawaban = List<bool?>.from(initial.jawabanEfektif);
+      // Pastikan panjang 10; pad dengan null jika kurang
+      if (_jawaban.length < 10) {
+        _jawaban.addAll(List<bool?>.filled(10 - _jawaban.length, null));
+      } else if (_jawaban.length > 10) {
+        _jawaban.removeRange(10, _jawaban.length);
+      }
+    } else {
+      _jawaban = List<bool?>.filled(10, null);
+    }
+  }
 
   @override
   void dispose() {
@@ -49,16 +76,39 @@ class _SkriningFormPageState extends State<SkriningFormPage> {
     );
   }
 
-  void _simpan() {
+  Future<void> _simpan() async {
     if (_hasil == null) return;
     final hasil = _hasil!;
     final now = DateTime.now();
-    final tanggal = '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}';
+    final tanggal = _isEditing && widget.initialRecord!.tanggal.isNotEmpty
+        ? widget.initialRecord!.tanggal
+        : '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}';
     final record = SkriningRecord.fromHasil(
       nama: _namaController.text.trim(),
       tanggal: tanggal,
       hasil: hasil,
+      jawaban: List<bool?>.from(_jawaban),
     );
+    // Persist to DB if peserta exists; otherwise just return record for caller to handle
+    try {
+      final db = getAppDatabase();
+      final pesertaRepo = PesertaRepository(db);
+      final skriningRepo = SkriningRepository(db);
+      final peserta = await pesertaRepo.getByNama(record.nama);
+      if (peserta != null) {
+        await skriningRepo.insertSkrining(
+          pesertaId: peserta.id,
+          tanggal: record.tanggal,
+          skor: hasil.skor,
+          kategori: hasil.kategori.name,
+          isRedFlag: hasil.isRedFlag,
+          rekomendasi: hasil.rekomendasi,
+          jawaban: List<bool?>.from(_jawaban),
+          createdBy: SessionService.currentAdmin?.id,
+        );
+      }
+    } catch (_) {}
+    if (!mounted) return;
     Navigator.of(context).pop(record);
   }
 
@@ -80,9 +130,9 @@ class _SkriningFormPageState extends State<SkriningFormPage> {
                 tooltip: 'Kembali',
                 onPressed: () => Navigator.of(context).pop(),
               ),
-              title: const Text(
-                'Skrining Jiwa Mandiri',
-                style: TextStyle(
+              title: Text(
+                _isEditing ? 'Edit Skrining Jiwa' : 'Skrining Jiwa',
+                style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                   color: AppColors.textDark,
@@ -94,8 +144,16 @@ class _SkriningFormPageState extends State<SkriningFormPage> {
                   TextButton.icon(
                     onPressed: () => setState(() {
                       _hasil = null;
-                      for (var i = 0; i < _jawaban.length; i++) {
-                        _jawaban[i] = null;
+                      if (_isEditing) {
+                        // Kembalikan ke jawaban awal saat edit, agar user bisa koreksi tanpa kehilangan data lama
+                        final init = widget.initialRecord!.jawabanEfektif;
+                        for (var i = 0; i < _jawaban.length; i++) {
+                          _jawaban[i] = i < init.length ? init[i] : null;
+                        }
+                      } else {
+                        for (var i = 0; i < _jawaban.length; i++) {
+                          _jawaban[i] = null;
+                        }
                       }
                     }),
                     icon: const Icon(Icons.refresh_rounded, size: 18),
@@ -297,33 +355,15 @@ class _SkriningFormPageState extends State<SkriningFormPage> {
           const SizedBox(height: 14),
           Align(
             alignment: Alignment.centerRight,
-            child: SegmentedButton<bool>(
-              segments: const [
-                ButtonSegment(
-                  value: true,
-                  label: Text('Ya'),
-                  icon: Icon(Icons.check_rounded, size: 16),
-                ),
-                ButtonSegment(
-                  value: false,
-                  label: Text('Tidak'),
-                  icon: Icon(Icons.close_rounded, size: 16),
-                ),
-              ],
-              selected: {?value},
-              emptySelectionAllowed: true,
-              onSelectionChanged: (selection) {
-                setState(() => _jawaban[index] = selection.first);
-              },
-              style: ButtonStyle(
-                visualDensity: VisualDensity.compact,
-                textStyle: WidgetStateProperty.all(
-                  const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    fontFamily: 'Inter',
-                  ),
-                ),
+            child: SizedBox(
+              width: 180,
+              child: AnimatedSegmentedSelector<bool>(
+                options: const [
+                  SegmentedOption(value: true, label: 'Ya'),
+                  SegmentedOption(value: false, label: 'Tidak'),
+                ],
+                selected: value,
+                onChanged: (v) => setState(() => _jawaban[index] = v),
               ),
             ),
           ),
@@ -504,11 +544,15 @@ class _SkriningFormPageState extends State<SkriningFormPage> {
                 height: 48,
                 child: FilledButton.icon(
                   onPressed: _simpan,
-                  icon: const Icon(Icons.save_rounded, size: 20),
-                  label: const Text(
-                    'Simpan ke Daftar Skrining',
-                    style:
-                        TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                  icon: Icon(
+                      _isEditing ? Icons.update_rounded : Icons.save_rounded,
+                      size: 20),
+                  label: Text(
+                    _isEditing
+                        ? 'Update Data Skrining'
+                        : 'Simpan ke Daftar Skrining',
+                    style: const TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.w700),
                   ),
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.heroButton,

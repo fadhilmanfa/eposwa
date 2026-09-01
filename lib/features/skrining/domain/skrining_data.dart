@@ -166,6 +166,7 @@ class SkriningRecord {
   final int? skor;
   final SkriningKategori kategori;
   final bool isRedFlag;
+  final List<bool?> jawaban;
 
   const SkriningRecord({
     required this.nama,
@@ -173,15 +174,53 @@ class SkriningRecord {
     required this.kategori,
     this.skor,
     this.isRedFlag = false,
+    this.jawaban = const [],
   });
 
   SkriningRecord.fromHasil({
     required this.nama,
     required this.tanggal,
     required SkriningHasil hasil,
+    List<bool?>? jawaban,
   })  : skor = hasil.skor,
         kategori = hasil.kategori,
-        isRedFlag = hasil.isRedFlag;
+        isRedFlag = hasil.isRedFlag,
+        jawaban = jawaban == null
+            ? const []
+            : List<bool?>.unmodifiable(List<bool?>.from(jawaban));
 
   String get skorLabel => isRedFlag ? 'RED FLAG' : '${skor ?? 0}';
+
+  /// Jawaban efektif untuk pre-fill form edit.
+  /// Jika [jawaban] sudah menyimpan 10 nilai, pakai itu.
+  /// Jika kosong (data lama / dummy), sintesis dari skor/kategori agar form tetap terisi konsisten.
+  List<bool?> get jawabanEfektif {
+    if (jawaban.length == 10) return List<bool?>.from(jawaban);
+    if (isRedFlag) {
+      return [...List<bool?>.filled(9, false), true];
+    }
+    final s = skor ?? 0;
+    return [
+      for (var i = 0; i < 9; i++) i < s,
+      false,
+    ];
+  }
+
+  SkriningRecord copyWith({
+    String? nama,
+    String? tanggal,
+    int? skor,
+    SkriningKategori? kategori,
+    bool? isRedFlag,
+    List<bool?>? jawaban,
+  }) {
+    return SkriningRecord(
+      nama: nama ?? this.nama,
+      tanggal: tanggal ?? this.tanggal,
+      kategori: kategori ?? this.kategori,
+      skor: skor ?? this.skor,
+      isRedFlag: isRedFlag ?? this.isRedFlag,
+      jawaban: jawaban ?? this.jawaban,
+    );
+  }
 }

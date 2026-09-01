@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:eposwa/core/constants/app_colors.dart';
+import 'package:eposwa/core/database/app_database.dart';
+import 'package:eposwa/core/services/session_service.dart';
 import 'package:eposwa/core/widgets/custom_title_bar.dart';
+import 'package:eposwa/features/auth/data/auth_repository.dart';
 import 'package:eposwa/features/main_layout/presentation/pages/main_layout_page.dart';
 
 /// Halaman Login Minimalis & Production-Ready untuk ePOSWA.
@@ -18,7 +21,23 @@ class _LoginPageState extends State<LoginPage> {
 
   bool _obscurePassword = true;
   bool _rememberMe = false;
-  final bool _isLoading = false;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRemembered();
+  }
+
+  Future<void> _loadRemembered() async {
+    final remembered = await SessionService.getRememberedUsername();
+    if (remembered != null && mounted) {
+      setState(() {
+        _identifierController.text = remembered;
+        _rememberMe = true;
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -28,26 +47,52 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _handleLogin() async {
-    // Mode Debug/Testing: Langsung masuk ke Dashboard Utama tanpa perlu isi form
-    final username = _identifierController.text.trim().isNotEmpty
-        ? _identifierController.text.trim()
-        : 'Admin Test';
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Login berhasil (Debug Mode): $username'),
-        backgroundColor: AppColors.primaryDark,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 1),
-      ),
-    );
-
-    // Langsung navigasi ke MainLayoutPage
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (context) => const MainLayoutPage(),
-      ),
-    );
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    setState(() => _isLoading = true);
+    try {
+      final db = getAppDatabase();
+      final repo = AuthRepository(db);
+      final admin = await repo.login(
+        _identifierController.text.trim(),
+        _passwordController.text,
+      );
+      if (!mounted) return;
+      if (admin == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Username atau kata sandi salah, atau akun nonaktif.',
+            ),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+      await SessionService.saveSession(admin, remember: _rememberMe);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Login berhasil: ${admin.namaLengkap}'),
+          backgroundColor: AppColors.primaryDark,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 1),
+        ),
+      );
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => const MainLayoutPage()),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal login: $e'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   void _showForgotPasswordDialog() {
@@ -88,7 +133,10 @@ class _LoginPageState extends State<LoginPage> {
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
               ),
             ),
           ],
@@ -103,7 +151,9 @@ class _LoginPageState extends State<LoginPage> {
               Navigator.of(dialogCtx).pop();
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Instruksi pemulihan kata sandi telah dikirim.'),
+                  content: Text(
+                    'Instruksi pemulihan kata sandi telah dikirim.',
+                  ),
                   backgroundColor: AppColors.primary,
                   behavior: SnackBarBehavior.floating,
                 ),
@@ -112,7 +162,9 @@ class _LoginPageState extends State<LoginPage> {
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             child: const Text('Kirim'),
           ),
@@ -134,7 +186,10 @@ class _LoginPageState extends State<LoginPage> {
           Expanded(
             child: Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 28,
+                ),
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 440),
                   child: Container(
@@ -273,11 +328,15 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
-                                borderSide: const BorderSide(color: AppColors.borderLight),
+                                borderSide: const BorderSide(
+                                  color: AppColors.borderLight,
+                                ),
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
-                                borderSide: const BorderSide(color: AppColors.borderLight),
+                                borderSide: const BorderSide(
+                                  color: AppColors.borderLight,
+                                ),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
@@ -288,7 +347,9 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                               errorBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
-                                borderSide: const BorderSide(color: Colors.redAccent),
+                                borderSide: const BorderSide(
+                                  color: Colors.redAccent,
+                                ),
                               ),
                             ),
                             validator: (value) {
@@ -336,7 +397,9 @@ class _LoginPageState extends State<LoginPage> {
                                   color: AppColors.textMuted,
                                 ),
                                 onPressed: () {
-                                  setState(() => _obscurePassword = !_obscurePassword);
+                                  setState(
+                                    () => _obscurePassword = !_obscurePassword,
+                                  );
                                 },
                               ),
                               filled: true,
@@ -347,11 +410,15 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
-                                borderSide: const BorderSide(color: AppColors.borderLight),
+                                borderSide: const BorderSide(
+                                  color: AppColors.borderLight,
+                                ),
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
-                                borderSide: const BorderSide(color: AppColors.borderLight),
+                                borderSide: const BorderSide(
+                                  color: AppColors.borderLight,
+                                ),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
@@ -362,7 +429,9 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                               errorBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
-                                borderSide: const BorderSide(color: Colors.redAccent),
+                                borderSide: const BorderSide(
+                                  color: Colors.redAccent,
+                                ),
                               ),
                             ),
                             validator: (value) {
@@ -394,7 +463,9 @@ class _LoginPageState extends State<LoginPage> {
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       onChanged: (val) {
-                                        setState(() => _rememberMe = val ?? false);
+                                        setState(
+                                          () => _rememberMe = val ?? false,
+                                        );
                                       },
                                     ),
                                   ),
@@ -414,7 +485,8 @@ class _LoginPageState extends State<LoginPage> {
                                 style: TextButton.styleFrom(
                                   padding: EdgeInsets.zero,
                                   minimumSize: Size.zero,
-                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
                                 ),
                                 child: const Text(
                                   'Lupa kata sandi?',
@@ -455,9 +527,10 @@ class _LoginPageState extends State<LoginPage> {
                                       height: 20,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
-                                        valueColor: AlwaysStoppedAnimation<Color>(
-                                          Colors.white,
-                                        ),
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                              Colors.white,
+                                            ),
                                       ),
                                     )
                                   : const Text('Masuk'),

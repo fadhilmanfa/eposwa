@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:eposwa/core/constants/app_colors.dart';
 
+enum SortDirection { asc, desc }
+
 /// Definisi kolom untuk [ExcelTable].
 class ExcelColumn {
   final String label;
   final double flex;
   final double minWidth;
+  final bool sortable;
 
   const ExcelColumn({
     required this.label,
     this.flex = 1,
     this.minWidth = 100,
+    this.sortable = true,
   });
 }
 
@@ -28,6 +32,11 @@ class ExcelTable extends StatefulWidget {
     this.headerHeight = 42,
     this.rowHeight = 52,
     this.emptyWidget,
+    this.wrapColumns = const {0},
+    this.rowLeftBorders,
+    this.sortColumnIndex,
+    this.sortDirection,
+    this.onSort,
   });
 
   final List<ExcelColumn> columns;
@@ -36,6 +45,16 @@ class ExcelTable extends StatefulWidget {
   final double headerHeight;
   final double rowHeight;
   final Widget? emptyWidget;
+  /// indeks kolom yang boleh wrap multiline (tidak di-scale FittedBox)
+  final Set<int> wrapColumns;
+  /// warna left border per baris (null = tanpa border), panjang harus sama dengan rows.length
+  final List<Color?>? rowLeftBorders;
+  /// indeks kolom yang sedang aktif di-sort (null = tidak ada)
+  final int? sortColumnIndex;
+  /// arah sort aktif
+  final SortDirection? sortDirection;
+  /// dipanggil saat header kolom [sortable] diklik
+  final ValueChanged<int>? onSort;
 
   @override
   State<ExcelTable> createState() => _ExcelTableState();
@@ -169,36 +188,75 @@ class _ExcelTableState extends State<ExcelTable> {
       child: Row(
         children: List.generate(widget.columns.length, (i) {
           final col = widget.columns[i];
+          final isActive = widget.sortColumnIndex == i;
+          final isSortable = col.sortable && widget.onSort != null;
+          final labelColor = isActive
+              ? AppColors.primary
+              : AppColors.textMuted;
+
+          final labelWidget = Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment:
+                i == 0 ? MainAxisAlignment.start : MainAxisAlignment.center,
+            children: [
+              Flexible(
+                child: Text(
+                  col.label,
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: i == 0 ? TextAlign.left : TextAlign.center,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                    color: labelColor,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ),
+              if (isActive)
+                Padding(
+                  padding: const EdgeInsets.only(left: 4),
+                  child: Icon(
+                    widget.sortDirection == SortDirection.asc
+                        ? Icons.arrow_upward_rounded
+                        : Icons.arrow_downward_rounded,
+                    size: 12,
+                    color: AppColors.primary,
+                  ),
+                ),
+            ],
+          );
+
+          final labelContent = FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: i == 0 ? Alignment.centerLeft : Alignment.center,
+            child: labelWidget,
+          );
+
           return SizedBox(
             width: display[i],
             child: Stack(
               children: [
                 // label — kolom pertama rata kiri, sisanya center
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Align(
-                    alignment:
-                        i == 0 ? Alignment.centerLeft : Alignment.center,
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment:
-                          i == 0 ? Alignment.centerLeft : Alignment.center,
-                      child: Text(
-                        col.label,
-                        maxLines: 1,
-                        softWrap: false,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign:
-                            i == 0 ? TextAlign.left : TextAlign.center,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 12,
-                          color: AppColors.textMuted,
-                          letterSpacing: 0.2,
+                Positioned.fill(
+                  child: isSortable
+                      ? _SortableHeaderCell(
+                          first: i == 0,
+                          content: labelContent,
+                          active: isActive,
+                          onTap: () => widget.onSort!(i),
+                        )
+                      : Padding(
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 12),
+                          child: Align(
+                            alignment: i == 0
+                                ? Alignment.centerLeft
+                                : Alignment.center,
+                            child: labelContent,
+                          ),
                         ),
-                      ),
-                    ),
-                  ),
                 ),
                 // single vertical divider + drag handle
                 Positioned(
@@ -221,49 +279,139 @@ class _ExcelTableState extends State<ExcelTable> {
   Widget _buildRow(int rowIndex, List<double> display) {
     final cells = widget.rows[rowIndex];
     final isEven = rowIndex % 2 == 0;
+    final leftBorderColor = widget.rowLeftBorders != null &&
+            rowIndex < widget.rowLeftBorders!.length
+        ? widget.rowLeftBorders![rowIndex]
+        : null;
+
+    // Jika ada left border, kurangi lebar kolom pertama agar total tetap = tableWidth
+    // sehingga border 2.5 tidak menyebabkan overflow (Row offset 2.5).
+    final adjustedDisplay = leftBorderColor != null
+        ? [
+            (display[0] - 2.5).clamp(widget.columns[0].minWidth - 2.5, 600.0).toDouble(),
+            ...display.sublist(1),
+          ]
+        : display;
+
+    final rowContent = Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: List.generate(widget.columns.length, (i) {
+        final cell = i < cells.length ? cells[i] : const SizedBox.shrink();
+        final shouldWrap = widget.wrapColumns.contains(i);
+        return SizedBox(
+          width: adjustedDisplay[i],
+          child: Stack(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Align(
+                  alignment: shouldWrap ? Alignment.centerLeft : Alignment.center,
+                  child: shouldWrap
+                      ? cell
+                      : FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.center,
+                          child: cell,
+                        ),
+                ),
+              ),
+              if (i > 0)
+                Positioned(
+                  left: 0,
+                  top: 8,
+                  bottom: 8,
+                  child: Container(width: 1, color: AppColors.borderLight),
+                ),
+            ],
+          ),
+        );
+      }),
+    );
+
+    if (leftBorderColor != null) {
+      return Container(
+        constraints: BoxConstraints(minHeight: widget.rowHeight),
+        decoration: BoxDecoration(
+          color: isEven ? Colors.white : const Color(0xFFFCFDFF),
+          border: const Border(bottom: BorderSide(color: AppColors.borderLight)),
+        ),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(width: 2.5, color: leftBorderColor),
+              Expanded(child: rowContent),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Container(
-      // pakai minHeight agar kolom Nama boleh wrap 2 baris tanpa overflow
       constraints: BoxConstraints(minHeight: widget.rowHeight),
       decoration: BoxDecoration(
         color: isEven ? Colors.white : const Color(0xFFFCFDFF),
         border: const Border(bottom: BorderSide(color: AppColors.borderLight)),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: List.generate(widget.columns.length, (i) {
-          final cell = i < cells.length ? cells[i] : const SizedBox.shrink();
-          final isNameCol = i == 0;
-          return SizedBox(
-            width: display[i],
-            child: Stack(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  child: Align(
-                    alignment:
-                        isNameCol ? Alignment.centerLeft : Alignment.center,
-                    // kolom selain Nama: jangan wrap, auto-kecil via FittedBox scaleDown,
-                    // lalu overflow scroll horizontal di level tabel
-                    child: isNameCol
-                        ? cell
-                        : FittedBox(
-                            fit: BoxFit.scaleDown,
-                            alignment: Alignment.center,
-                            child: cell,
-                          ),
-                  ),
-                ),
-                if (i > 0)
-                  Positioned(
-                    left: 0,
-                    top: 8,
-                    bottom: 8,
-                    child: Container(width: 1, color: AppColors.borderLight),
-                  ),
-              ],
-            ),
-          );
-        }),
+      child: rowContent,
+    );
+  }
+}
+
+class _SortableHeaderCell extends StatefulWidget {
+  const _SortableHeaderCell({
+    required this.first,
+    required this.content,
+    required this.active,
+    required this.onTap,
+  });
+
+  final bool first;
+  final Widget content;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  State<_SortableHeaderCell> createState() => _SortableHeaderCellState();
+}
+
+class _SortableHeaderCellState extends State<_SortableHeaderCell> {
+  bool _hover = false;
+  bool _pressed = false;
+
+  Color get _bg {
+    if (_pressed) return AppColors.primary.withValues(alpha: 0.10);
+    if (_hover) return AppColors.primary.withValues(alpha: 0.06);
+    return Colors.transparent;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapCancel: () => setState(() => _pressed = false),
+        onTapUp: (_) {
+          setState(() => _pressed = false);
+          widget.onTap();
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          curve: Curves.easeOut,
+          alignment: widget.first
+              ? Alignment.centerLeft
+              : Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: _bg,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: widget.content,
+        ),
       ),
     );
   }

@@ -1,21 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:eposwa/core/constants/app_colors.dart';
+import 'package:eposwa/core/responsive/app_responsive.dart';
+import 'package:eposwa/core/services/session_service.dart';
 
 /// Halaman Greeting & Dashboard Overview - Minimalis dengan Grafik Harian.
 class GreetingPage extends StatelessWidget {
   final ValueChanged<int>? onNavigate;
 
-  const GreetingPage({
-    super.key,
-    this.onNavigate,
-  });
+  const GreetingPage({super.key, this.onNavigate});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFAFAFA),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 28),
+        padding: EdgeInsets.symmetric(
+          horizontal: context.scaleSpace(16, medium: 24, expanded: 32),
+          vertical: context.scaleSpace(20, medium: 24, expanded: 28),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -24,8 +26,8 @@ class GreetingPage extends StatelessWidget {
 
             const SizedBox(height: 28),
 
-            // 2. Metrik Utama (4 Kartu Minimalis)
-            _buildMetricsRow(),
+            // 2. Metrik Utama (4 Kartu Minimalis - responsif)
+            _buildMetricsRow(context),
 
             const SizedBox(height: 32),
 
@@ -38,12 +40,13 @@ class GreetingPage extends StatelessWidget {
   }
 
   Widget _buildMinimalHeader() {
-    return const Column(
+    final nama = SessionService.currentAdmin?.namaLengkap ?? 'Administrator';
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Halo, Administrator 👋',
-          style: TextStyle(
+          'Halo, $nama 👋',
+          style: const TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.w700,
             color: AppColors.textDark,
@@ -55,47 +58,82 @@ class GreetingPage extends StatelessWidget {
     );
   }
 
-  Widget _buildMetricsRow() {
+  Widget _buildMetricsRow(BuildContext context) {
+    final isCompact = context.isCompact;
+    final isMedium = context.isMedium;
+
+    // Layar sangat sempit: 1 kolom agar tidak overflow
+    if (isCompact) {
+      return Column(
+        children: [
+          _MinimalStatCard(label: 'Pendaftaran Hari Ini', value: '24'),
+          const SizedBox(height: 16),
+          _MinimalStatCard(label: 'Sedang Ikut Ujian', value: '18'),
+          const SizedBox(height: 16),
+          _MinimalStatCard(label: 'Total Terdaftar', value: '1,428'),
+          const SizedBox(height: 16),
+          _MinimalStatCard(label: 'Sisa Kuota', value: '72'),
+        ],
+      );
+    }
+
+    // Layar medium: grid 2x2
+    if (isMedium) {
+      return Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _MinimalStatCard(
+                  label: 'Pendaftaran Hari Ini',
+                  value: '24',
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _MinimalStatCard(
+                  label: 'Sedang Ikut Ujian',
+                  value: '18',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _MinimalStatCard(
+                  label: 'Total Terdaftar',
+                  value: '1,428',
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _MinimalStatCard(label: 'Sisa Kuota', value: '72'),
+              ),
+            ],
+          ),
+        ],
+      );
+    }
+
+    // Layar lebar: 4 kolom
     return Row(
       children: [
         Expanded(
-          child: _MinimalStatCard(
-            label: 'Pendaftaran Hari Ini',
-            value: '24',
-            badge: '+12%',
-            badgeColor: const Color(0xFF10B981),
-            icon: Icons.person_add_alt_1_outlined,
-          ),
+          child: _MinimalStatCard(label: 'Pendaftaran Hari Ini', value: '24'),
         ),
         const SizedBox(width: 16),
         Expanded(
-          child: _MinimalStatCard(
-            label: 'Sedang Ikut Ujian',
-            value: '18',
-            badge: 'Aktif',
-            badgeColor: const Color(0xFF3B82F6),
-            icon: Icons.quiz_outlined,
-          ),
+          child: _MinimalStatCard(label: 'Sedang Ikut Ujian', value: '18'),
         ),
         const SizedBox(width: 16),
         Expanded(
-          child: _MinimalStatCard(
-            label: 'Total Terdaftar',
-            value: '1,428',
-            badge: 'Tahun 2026',
-            badgeColor: const Color(0xFF6B7280),
-            icon: Icons.groups_outlined,
-          ),
+          child: _MinimalStatCard(label: 'Total Terdaftar', value: '1,428'),
         ),
         const SizedBox(width: 16),
         Expanded(
-          child: _MinimalStatCard(
-            label: 'Sisa Kuota',
-            value: '72',
-            badge: 'Gel. 1',
-            badgeColor: const Color(0xFFF59E0B),
-            icon: Icons.pie_chart_outline_rounded,
-          ),
+          child: _MinimalStatCard(label: 'Sisa Kuota', value: '72'),
         ),
       ],
     );
@@ -105,17 +143,8 @@ class GreetingPage extends StatelessWidget {
 class _MinimalStatCard extends StatelessWidget {
   final String label;
   final String value;
-  final String badge;
-  final Color badgeColor;
-  final IconData icon;
 
-  const _MinimalStatCard({
-    required this.label,
-    required this.value,
-    required this.badge,
-    required this.badgeColor,
-    required this.icon,
-  });
+  const _MinimalStatCard({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
@@ -129,51 +158,23 @@ class _MinimalStatCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 12.5,
-                  color: AppColors.textMuted,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              Icon(icon, size: 18, color: AppColors.textMuted.withValues(alpha: 0.7)),
-            ],
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12.5,
+              color: AppColors.textMuted,
+              fontWeight: FontWeight.w500,
+            ),
           ),
           const SizedBox(height: 14),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textDark,
-                  fontFamily: 'Inter',
-                ),
-              ),
-              const SizedBox(width: 10),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: badgeColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  badge,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: badgeColor,
-                  ),
-                ),
-              ),
-            ],
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textDark,
+              fontFamily: 'Inter',
+            ),
           ),
         ],
       ),
@@ -209,11 +210,12 @@ class _DailyAnalyticsChart extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header Grafik & Legend
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Column(
+          // Header Grafik & Legend (responsif: menumpuk saat sempit)
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isNarrow = constraints.maxWidth < 520;
+
+              final title = const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
@@ -234,9 +236,10 @@ class _DailyAnalyticsChart extends StatelessWidget {
                     ),
                   ),
                 ],
-              ),
-              // Legend
-              Row(
+              );
+
+              final legend = Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   _buildLegendItem(
                     color: AppColors.primary,
@@ -248,8 +251,25 @@ class _DailyAnalyticsChart extends StatelessWidget {
                     label: 'Sudah Test',
                   ),
                 ],
-              ),
-            ],
+              );
+
+              if (isNarrow) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [title, const SizedBox(height: 16), legend],
+                );
+              }
+
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: title),
+                  const SizedBox(width: 16),
+                  legend,
+                ],
+              );
+            },
           ),
 
           const SizedBox(height: 28),
@@ -280,69 +300,91 @@ class _DailyAnalyticsChart extends StatelessWidget {
 
                 const SizedBox(width: 16),
 
-                // Area Batang Grafik
+                // Area Batang Grafik (scroll horizontal jika ruang sempit)
                 Expanded(
-                  child: Stack(
-                    children: [
-                      // Gridlines Horisontal
-                      Column(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: List.generate(
-                          5,
-                          (_) => Divider(
-                            height: 1,
-                            color: Colors.grey.shade100,
-                          ),
-                        ),
-                      ),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      // Lebar minimum agar 7 kolom hari muat dengan nyaman
+                      const double minChartWidth = 340;
+                      final chartWidth = constraints.maxWidth < minChartWidth
+                          ? minChartWidth
+                          : constraints.maxWidth;
 
-                      // Bar Columns
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: _chartData.map((item) {
-                          final pendaftaran = item['pendaftaran'] as int;
-                          final test = item['test'] as int;
-                          final day = item['day'] as String;
-
-                          final pendaftaranHeight = (pendaftaran / maxVal) * 200;
-                          final testHeight = (test / maxVal) * 200;
-
-                          return Column(
-                            mainAxisAlignment: MainAxisAlignment.end,
+                      return SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: SizedBox(
+                          width: chartWidth,
+                          height: constraints.maxHeight,
+                          child: Stack(
                             children: [
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  // Bar Pendaftaran
-                                  _BarItem(
-                                    height: pendaftaranHeight,
-                                    color: AppColors.primary,
-                                    value: pendaftaran,
+                              // Gridlines Horisontal
+                              Column(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: List.generate(
+                                  5,
+                                  (_) => Divider(
+                                    height: 1,
+                                    color: Colors.grey.shade100,
                                   ),
-                                  const SizedBox(width: 6),
-                                  // Bar Test
-                                  _BarItem(
-                                    height: testHeight,
-                                    color: const Color(0xFF10B981),
-                                    value: test,
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                day,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.textDark,
                                 ),
                               ),
+
+                              // Bar Columns
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceAround,
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: _chartData.map((item) {
+                                  final pendaftaran =
+                                      item['pendaftaran'] as int;
+                                  final test = item['test'] as int;
+                                  final day = item['day'] as String;
+
+                                  final pendaftaranHeight =
+                                      (pendaftaran / maxVal) * 200;
+                                  final testHeight = (test / maxVal) * 200;
+
+                                  return Column(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.end,
+                                        children: [
+                                          // Bar Pendaftaran
+                                          _BarItem(
+                                            height: pendaftaranHeight,
+                                            color: AppColors.primary,
+                                            value: pendaftaran,
+                                          ),
+                                          const SizedBox(width: 6),
+                                          // Bar Test
+                                          _BarItem(
+                                            height: testHeight,
+                                            color: const Color(0xFF10B981),
+                                            value: test,
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        day,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.textDark,
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                }).toList(),
+                              ),
                             ],
-                          );
-                        }).toList(),
-                      ),
-                    ],
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ],
