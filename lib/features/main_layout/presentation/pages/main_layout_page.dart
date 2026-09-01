@@ -11,6 +11,7 @@ import 'package:eposwa/core/services/session_service.dart';
 import 'package:eposwa/core/services/export_service.dart';
 import 'package:eposwa/core/services/import_service.dart';
 import 'package:eposwa/features/auth/presentation/pages/admin_management_page.dart';
+import 'package:eposwa/features/main_layout/presentation/widgets/share_dialogs.dart';
 
 class MainLayoutPage extends StatefulWidget {
   final int initialIndex;
@@ -142,23 +143,136 @@ class _MainLayoutPageState extends State<MainLayoutPage> {
   }
 
   Future<void> _handleInstanSql() async {
+    final result = await showDialog<ShareResult>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const ShareDialog(),
+    );
+    if (!mounted) return;
+    if (result == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Berbagi instan dibatalkan')));
+      return;
+    }
+    if (result.sent) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Data berhasil dikirim ke ${result.peerName}'),
+          backgroundColor: AppColors.primary,
+        ),
+      );
+      return;
+    }
+    final sql = result.sql;
+    if (sql == null) return;
+
+    // 1) Preview isi tabel yang dikirim
+    final action = await showDialog<(PreviewAction, String?)>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => PreviewDialog(sql: sql, senderName: result.peerName),
+    );
+    if (!mounted) return;
+    if (action == null || action.$1 == PreviewAction.cancel) return;
+    if (action.$1 == PreviewAction.saved) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Data tersimpan: ${action.$2}'),
+          backgroundColor: AppColors.primary,
+        ),
+      );
+      return;
+    }
+
+    // 2) Terapkan → cek dulu NIK yang sudah ada di database lokal
     try {
-      final path = await ExportService.exportSqlInstan();
+      final preview = await ImportService.previewSqlFromContent(sql);
+      if (!mounted) return;
+      if (preview != null && preview.duplicateCount > 0) {
+        final niks = preview.duplicateNiks;
+        final shown = niks.take(8).join(', ');
+        final more =
+            niks.length > 8 ? '\n... dan ${niks.length - 8} NIK lainnya' : '';
+        final lanjutkan = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+            title: const Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: Color(0xFFF59E0B)),
+                SizedBox(width: 10),
+                Text(
+                  'Data Sudah Ada',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Ditemukan NIK yang sudah ada di database ini:',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.primarySoft,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppColors.borderLight),
+                  ),
+                  child: Text(
+                    'Data sudah ada: NIK $shown$more',
+                    style: const TextStyle(fontSize: 13, height: 1.5),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Lanjutkan akan menambahkan ${preview.newCount} peserta baru sebagai baris baru dan melewati ${preview.duplicateCount} data yang NIK-nya sudah ada.',
+                  style: TextStyle(fontSize: 12.5, color: AppColors.textMuted),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('Batal'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: const Text('Lanjutkan'),
+              ),
+            ],
+          ),
+        );
+        if (lanjutkan != true || !mounted) return;
+      }
+
+      final importResult = await ImportService.importSqlFromContent(
+        sql,
+        ImportStrategy.skip,
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Instan: SQL di-export ke $path (path disalin, folder dibuka)',
+            'Terapkan selesai: ${importResult.imported} peserta baru ditambahkan, ${importResult.skipped} duplikat dilewati',
           ),
           backgroundColor: AppColors.primary,
-          duration: const Duration(seconds: 4),
         ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Gagal instan: $e'),
+          content: Text('Gagal terapkan: $e'),
           backgroundColor: Colors.redAccent,
         ),
       );

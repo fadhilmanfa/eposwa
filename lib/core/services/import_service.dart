@@ -23,8 +23,41 @@ class ImportResult {
 }
 
 class ImportService {
-  static Future<ImportPreview?> previewSqlImport(String sqlPath) async {
-    final content = await File(sqlPath).readAsString();
+  /// Parsing SQL dump menjadi tabel → daftar baris (map kolom → nilai mentah).
+  /// Dipakai untuk preview isi tabel yang diterima lewat berbagi instan.
+  static Map<String, List<Map<String, String>>> parseSqlTables(
+    String content,
+  ) {
+    final result = <String, List<Map<String, String>>>{};
+    const tables = ['admins', 'pesertas', 'skrining_records', 'skrining_jawabans'];
+    for (final table in tables) {
+      result[table] = [];
+    }
+    for (final line in content.split('\n')) {
+      final tableMatch = RegExp(
+        r'INSERT INTO "(\w+)" \(([^)]+)\)\s*VALUES\s*\((.*)\)\s*;',
+        caseSensitive: false,
+      ).firstMatch(line);
+      if (tableMatch == null) continue;
+      final table = tableMatch.group(1)!.toLowerCase();
+      if (!result.containsKey(table)) continue;
+      final cols = tableMatch
+          .group(2)!
+          .split(',')
+          .map((c) => c.trim().replaceAll('"', ''))
+          .toList();
+      final vals = _splitSqlValues(tableMatch.group(3)!);
+      final row = <String, String>{};
+      for (int i = 0; i < cols.length && i < vals.length; i++) {
+        row[cols[i]] = vals[i].trim();
+      }
+      result[table]!.add(row);
+    }
+    return result;
+  }
+
+  /// Preview duplikat NIK dari konten SQL (tanpa file).
+  static Future<ImportPreview?> previewSqlFromContent(String content) async {
     final pesertaInserts = RegExp(r'INSERT INTO "pesertas"', caseSensitive: false).allMatches(content).length;
     final currentDb = getAppDatabase();
     final currentPesertas = await currentDb.select(currentDb.pesertas).get();
@@ -56,6 +89,11 @@ class ImportService {
     return ImportPreview(totalInFile: pesertaInserts, newCount: pesertaInserts - dup, duplicateCount: dup, duplicateNiks: dupNiks);
   }
 
+  static Future<ImportPreview?> previewSqlImport(String sqlPath) async {
+    final content = await File(sqlPath).readAsString();
+    return previewSqlFromContent(content);
+  }
+
   static List<String> _splitSqlValues(String raw) {
     final result = <String>[];
     final buf = StringBuffer();
@@ -83,6 +121,15 @@ class ImportService {
 
   static Future<ImportResult> importSql(String sqlPath, ImportStrategy strategy) async {
     final content = await File(sqlPath).readAsString();
+    return importSqlFromContent(content, strategy);
+  }
+
+  /// Import dari konten SQL langsung (dipakai untuk data yang diterima
+  /// lewat berbagi instan). Peserta NIK baru ditambahkan sebagai baris baru.
+  static Future<ImportResult> importSqlFromContent(
+    String content,
+    ImportStrategy strategy,
+  ) async {
     final currentDb = getAppDatabase();
     int imported = 0, skipped = 0, replaced = 0, merged = 0;
     final lines = content.split('\n');
