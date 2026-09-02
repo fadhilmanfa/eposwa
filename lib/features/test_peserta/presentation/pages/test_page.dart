@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:eposwa/core/constants/app_colors.dart';
 import 'package:eposwa/core/database/app_database.dart' hide SkriningRecord;
 import 'package:eposwa/core/responsive/app_responsive.dart';
-import 'package:eposwa/core/services/export_service.dart';
-import 'package:eposwa/core/services/import_service.dart';
 import 'package:eposwa/core/widgets/excel_table.dart';
 import 'package:eposwa/features/skrining/data/skrining_repository.dart';
 import 'package:eposwa/features/skrining/domain/skrining_data.dart';
@@ -42,43 +40,6 @@ class _TestPageState extends State<TestPage> {
       _items = list;
       _loading = false;
     });
-  }
-
-  Future<void> _handleExport() async {
-    try {
-      final path = await ExportService.exportSql();
-      if (!mounted) return;
-      if (path == null) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Export dibatalkan')));
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('SQL di-export: $path'), backgroundColor: AppColors.primary));
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal export: $e'), backgroundColor: Colors.redAccent));
-    }
-  }
-
-  Future<void> _handleImport() async {
-    try {
-      final result = await ImportService.importSqlWithDialog(context);
-      if (!mounted) return;
-      if (result == null) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Import dibatalkan')));
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Import: ${result.imported} baru, ${result.skipped} lewati, ${result.replaced} timpa, ${result.merged} gabung'), backgroundColor: AppColors.primary));
-        await _load();
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal import: $e'), backgroundColor: Colors.redAccent));
-    }
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
   }
 
   Future<void> _openSkriningBaru() async {
@@ -234,15 +195,18 @@ class _TestPageState extends State<TestPage> {
                     fillColor: Colors.white,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide.none,
+                      borderSide: const BorderSide(
+                          color: AppColors.borderLight, width: 1),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide.none,
+                      borderSide: const BorderSide(
+                          color: AppColors.borderLight, width: 1),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide.none,
+                      borderSide:
+                          const BorderSide(color: AppColors.primary, width: 1.5),
                     ),
                     contentPadding: const EdgeInsets.symmetric(
                         horizontal: 14, vertical: 12),
@@ -376,29 +340,6 @@ class _TestPageState extends State<TestPage> {
                 ),
               );
 
-              final exportBtn = OutlinedButton.icon(
-                onPressed: _handleExport,
-                icon: const Icon(Icons.upload_rounded, size: 16),
-                label: const Text('Export SQL'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.primary,
-                  side: const BorderSide(color: AppColors.primary),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                ),
-              );
-              final importBtn = FilledButton.icon(
-                onPressed: _handleImport,
-                icon: const Icon(Icons.download_rounded, size: 16),
-                label: const Text('Import SQL'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                ),
-              );
-
               if (constraints.maxWidth >= 640) {
                 return Row(
                   children: [
@@ -407,10 +348,6 @@ class _TestPageState extends State<TestPage> {
                     filterBtn,
                     const SizedBox(width: 12),
                     skriningBtn,
-                    const SizedBox(width: 8),
-                    exportBtn,
-                    const SizedBox(width: 8),
-                    importBtn,
                   ],
                 );
               }
@@ -419,7 +356,7 @@ class _TestPageState extends State<TestPage> {
                 children: [
                   searchField,
                   const SizedBox(height: 12),
-                  Wrap(spacing: 8, runSpacing: 8, children: [filterBtn, skriningBtn, exportBtn, importBtn]),
+                  Wrap(spacing: 8, runSpacing: 8, children: [filterBtn, skriningBtn]),
                 ],
               );
             },
