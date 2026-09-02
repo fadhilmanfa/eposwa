@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:eposwa/core/constants/app_colors.dart';
 import 'package:eposwa/core/database/app_database.dart';
 import 'package:eposwa/core/responsive/app_responsive.dart';
-import 'package:eposwa/core/services/export_service.dart';
-import 'package:eposwa/core/services/import_service.dart';
 import 'package:eposwa/core/widgets/excel_table.dart';
+import 'package:eposwa/features/database_peserta/presentation/pages/peserta_detail_page.dart';
 import 'package:eposwa/features/pendaftaran/data/peserta_repository.dart';
 
 class DatabasePage extends StatefulWidget {
@@ -95,37 +94,6 @@ class _DatabasePageState extends State<DatabasePage> {
     });
   }
 
-  Future<void> _handleExport() async {
-    try {
-      final path = await ExportService.exportSql();
-      if (!mounted) return;
-      if (path == null) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Export dibatalkan')));
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('SQL di-export: $path'), backgroundColor: AppColors.primary));
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal export: $e'), backgroundColor: Colors.redAccent));
-    }
-  }
-
-  Future<void> _handleImport() async {
-    try {
-      final result = await ImportService.importSqlWithDialog(context);
-      if (!mounted) return;
-      if (result == null) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Import dibatalkan')));
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Import: ${result.imported} baru, ${result.skipped} lewati, ${result.replaced} timpa, ${result.merged} gabung'), backgroundColor: AppColors.primary));
-        await _load();
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal import: $e'), backgroundColor: Colors.redAccent));
-    }
-  }
-
   @override
   void dispose() {
     _searchController.dispose();
@@ -168,15 +136,18 @@ class _DatabasePageState extends State<DatabasePage> {
                     fillColor: Colors.white,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide.none,
+                      borderSide: const BorderSide(
+                          color: AppColors.borderLight, width: 1),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide.none,
+                      borderSide: const BorderSide(
+                          color: AppColors.borderLight, width: 1),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide.none,
+                      borderSide:
+                          const BorderSide(color: AppColors.primary, width: 1.5),
                     ),
                     contentPadding: const EdgeInsets.symmetric(
                         horizontal: 14, vertical: 12),
@@ -292,39 +263,12 @@ class _DatabasePageState extends State<DatabasePage> {
                 ),
               );
 
-              final exportBtn = OutlinedButton.icon(
-                onPressed: _handleExport,
-                icon: const Icon(Icons.upload_rounded, size: 16),
-                label: const Text('Export SQL'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.primary,
-                  side: const BorderSide(color: AppColors.primary),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                ),
-              );
-              final importBtn = FilledButton.icon(
-                onPressed: _handleImport,
-                icon: const Icon(Icons.download_rounded, size: 16),
-                label: const Text('Import SQL'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                ),
-              );
-
               if (constraints.maxWidth >= 640) {
                 return Row(
                   children: [
                     Expanded(child: searchField),
                     const SizedBox(width: 12),
                     filterBtn,
-                    const SizedBox(width: 8),
-                    exportBtn,
-                    const SizedBox(width: 8),
-                    importBtn,
                   ],
                 );
               }
@@ -333,7 +277,7 @@ class _DatabasePageState extends State<DatabasePage> {
                 children: [
                   searchField,
                   const SizedBox(height: 12),
-                  Wrap(spacing: 8, runSpacing: 8, children: [filterBtn, exportBtn, importBtn]),
+                  Wrap(spacing: 8, runSpacing: 8, children: [filterBtn]),
                 ],
               );
             },
@@ -522,97 +466,8 @@ class _DatabasePageState extends State<DatabasePage> {
   }
 
   Future<void> _showDetail(Peserta item) async {
-    await showDialog<void>(
-      context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.white,
-        constraints: const BoxConstraints(maxWidth: 420),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.visibility_rounded, color: AppColors.primary, size: 22),
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Text('Detail Peserta', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.textDark)),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close_rounded, size: 20),
-                    onPressed: () => Navigator.pop(context),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              _detailRow('ID', item.kodePeserta),
-              _detailRow('Nama Peserta', item.nama),
-              _detailRow('NIK', item.nik),
-              _detailRow('Program', item.program),
-              _detailRow('No. WhatsApp', item.noHp),
-              Row(
-                children: [
-                  const SizedBox(width: 110, child: Text('Status', style: TextStyle(fontSize: 13, color: AppColors.textMuted))),
-                  Expanded(child: _buildStatusBadge(item.status)),
-                ],
-              ),
-              const SizedBox(height: 8),
-              _detailRow('Tgl Daftar', item.tglDaftar),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  child: const Text('Tutup',
-                      style: TextStyle(fontWeight: FontWeight.w600)),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _detailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 110,
-            child: Text(label,
-                style: const TextStyle(fontSize: 13, color: AppColors.textMuted)),
-          ),
-          Expanded(
-            child: Text(value,
-                style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textDark)),
-          ),
-        ],
-      ),
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => PesertaDetailPage(peserta: item)),
     );
   }
 
