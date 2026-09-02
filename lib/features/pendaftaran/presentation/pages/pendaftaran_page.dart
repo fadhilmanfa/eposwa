@@ -228,147 +228,153 @@ class _PendaftaranPageState extends State<PendaftaranPage> {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: EdgeInsets.all(context.scaleSpace(16, medium: 24, expanded: 28)),
+      padding: const EdgeInsets.all(24),
       child: Center(
         child: Container(
-          constraints: const BoxConstraints(maxWidth: 960),
+          constraints: const BoxConstraints(maxWidth: 1200),
           child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Seksi 1: Data Diri
-                _buildSectionCard(
-                  title: 'Form Pendaftaran Peserta Baru',
+                _buildSectionHeader(
+                  title: 'Form Data Diri',
                   subtitle: 'Informasi identitas pribadi peserta',
                   icon: Icons.person_outline_rounded,
-                  child: Column(
-                    children: [
-                      _buildFieldRow([
-                        _buildTextField(
-                          controller: _namaController,
-                          label: 'Nama Lengkap *',
-                          hint: 'Masukkan nama lengkap sesuai KTP',
-                          icon: Icons.badge_outlined,
-                          validator: (val) => val == null || val.isEmpty
-                              ? 'Nama wajib diisi'
-                              : null,
-                        ),
-                        _buildTextField(
-                          controller: _nikController,
-                          label: 'NIK *',
-                          hint: '16 digit NIK',
-                          icon: Icons.subtitles_outlined,
-                          keyboardType: TextInputType.number,
-                          validator: (val) => val == null || val.length < 16
-                              ? 'NIK minimal 16 digit'
-                              : null,
-                        ),
-                      ]),
-                      const SizedBox(height: 16),
-                      _buildFieldRow([
-                        _buildTextField(
-                          controller: null,
-                          label: 'Tanggal Lahir *',
-                          hint: 'DD/MM/YYYY',
-                          icon: Icons.calendar_month_outlined,
-                          value: _tglLahir,
-                          onTap: _pickTanggalLahir,
-                          error: _showJadwalError && _tglLahir == null,
-                        ),
-                        _buildGenderSelector(),
-                      ]),
-                      const SizedBox(height: 16),
+                ),
+                const SizedBox(height: 20),
+                Column(
+                  children: [
+                    _buildFieldRow([
                       _buildTextField(
-                        controller: _noHpController,
-                        label: 'No. HP / WhatsApp *',
-                        hint: '08xxxxxxxxxx',
-                        icon: Icons.phone_outlined,
-                        keyboardType: TextInputType.phone,
-                        validator: (val) {
-                          if (val == null || val.trim().isEmpty) return 'No. HP wajib diisi';
-                          final v = val.trim();
-                          if (!RegExp(r'^08\d{8,13}$').hasMatch(v)) return 'Format 08... 10-15 digit';
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      _buildTextField(
-                        controller: _alamatController,
-                        label: 'Alamat *',
-                        hint: 'Alamat lengkap tempat tinggal',
-                        icon: Icons.home_outlined,
-                        maxLines: 3,
+                        controller: _namaController,
+                        label: 'Nama Lengkap *',
+                        hint: 'Masukkan nama lengkap sesuai KTP',
+                        icon: Icons.badge_outlined,
                         validator: (val) => val == null || val.isEmpty
-                            ? 'Alamat wajib diisi'
+                            ? 'Nama wajib diisi'
                             : null,
                       ),
-                    ],
-                  ),
+                      _buildTextField(
+                        controller: _nikController,
+                        label: 'NIK *',
+                        hint: '16 digit NIK',
+                        icon: Icons.subtitles_outlined,
+                        keyboardType: TextInputType.number,
+                        validator: (val) => val == null || val.length < 16
+                            ? 'NIK minimal 16 digit'
+                            : null,
+                      ),
+                    ]),
+                    const SizedBox(height: 16),
+                    _buildFieldRow([
+                      _buildTextField(
+                        controller: null,
+                        label: 'Tanggal Lahir *',
+                        hint: 'DD/MM/YYYY',
+                        icon: Icons.calendar_month_outlined,
+                        value: _tglLahir,
+                        onTap: _pickTanggalLahir,
+                        error: _showJadwalError && _tglLahir == null,
+                      ),
+                      _buildGenderSelector(),
+                    ]),
+                    const SizedBox(height: 16),
+                    _buildTextField(
+                      controller: _noHpController,
+                      label: 'No. HP / WhatsApp *',
+                      hint: '08xxxxxxxxxx',
+                      icon: Icons.phone_outlined,
+                      keyboardType: TextInputType.phone,
+                      validator: (val) {
+                        if (val == null || val.trim().isEmpty) {
+                          return 'No. HP wajib diisi';
+                        }
+                        final v = val.trim();
+                        if (!RegExp(r'^08\d{8,13}$').hasMatch(v)) {
+                          return 'Format 08... 10-15 digit';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    _buildTextField(
+                      controller: _alamatController,
+                      label: 'Alamat *',
+                      hint: 'Alamat lengkap tempat tinggal',
+                      icon: Icons.home_outlined,
+                      maxLines: 3,
+                      validator: (val) => val == null || val.isEmpty
+                          ? 'Alamat wajib diisi'
+                          : null,
+                    ),
+                  ],
                 ),
 
-                const SizedBox(height: 24),
+                const SizedBox(height: 28),
 
                 // Seksi 2: Riwayat Kesehatan Jiwa
-                _buildSectionCard(
+                _buildSectionHeader(
                   title: 'Riwayat Kesehatan Jiwa',
                   subtitle: 'Informasi riwayat kesehatan jiwa peserta',
                   icon: Icons.psychology_outlined,
-                  child: Column(
-                    children: [
-                      _buildYaTidakRow(
-                        question:
-                            'Apakah Anda pernah konsultasi jiwa sebelumnya?',
-                        value: _pernahKonsultasi,
-                        showError:
-                            _showRiwayatError && _pernahKonsultasi == null,
-                        onChanged: (val) =>
-                            setState(() => _pernahKonsultasi = val),
-                      ),
-                      const SizedBox(height: 16),
-                      _buildYaTidakRow(
-                        question:
-                            'Apakah Anda pernah mendapatkan obat sebelumnya?',
-                        value: _pernahDapatObat,
-                        showError:
-                            _showRiwayatError && _pernahDapatObat == null,
-                        onChanged: (val) =>
-                            setState(() => _pernahDapatObat = val),
-                      ),
-                    ],
-                  ),
+                ),
+                const SizedBox(height: 20),
+                Column(
+                  children: [
+                    _buildYaTidakRow(
+                      question:
+                          'Apakah Anda pernah konsultasi jiwa sebelumnya?',
+                      value: _pernahKonsultasi,
+                      showError:
+                          _showRiwayatError && _pernahKonsultasi == null,
+                      onChanged: (val) =>
+                          setState(() => _pernahKonsultasi = val),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildYaTidakRow(
+                      question:
+                          'Apakah Anda pernah mendapatkan obat sebelumnya?',
+                      value: _pernahDapatObat,
+                      showError: _showRiwayatError && _pernahDapatObat == null,
+                      onChanged: (val) =>
+                          setState(() => _pernahDapatObat = val),
+                    ),
+                  ],
                 ),
 
-                const SizedBox(height: 24),
+                const SizedBox(height: 28),
 
                 // Seksi 3: Jadwal & Layanan
-                _buildSectionCard(
+                _buildSectionHeader(
                   title: 'Jadwal & Layanan',
                   subtitle: 'Pilih jadwal kunjungan yang diinginkan',
                   icon: Icons.event_available_outlined,
-                  child: _buildFieldRow([
-                    _buildTextField(
-                      controller: null,
-                      label: 'Tanggal Kunjungan *',
-                      hint: 'DD/MM/YYYY',
-                      icon: Icons.event_outlined,
-                      value: _tglLahir,
-                      onTap: _pickTanggalLahir,
-                      error: _showJadwalError && _tglLahir == null,
-                    ),
-                    _buildTextField(
-                      controller: null,
-                      label: 'Jam Kunjungan *',
-                      hint: 'HH:MM',
-                      icon: Icons.access_time_rounded,
-                      value: _jamKunjungan,
-                      onTap: _pickJamKunjungan,
-                      error: _showJadwalError && _jamKunjungan == null,
-                    ),
-                  ]),
                 ),
+                const SizedBox(height: 20),
+                _buildFieldRow([
+                  _buildTextField(
+                    controller: null,
+                    label: 'Tanggal Kunjungan *',
+                    hint: 'DD/MM/YYYY',
+                    icon: Icons.event_outlined,
+                    value: _tglLahir,
+                    onTap: _pickTanggalLahir,
+                    error: _showJadwalError && _tglLahir == null,
+                  ),
+                  _buildTextField(
+                    controller: null,
+                    label: 'Jam Kunjungan *',
+                    hint: 'HH:MM',
+                    icon: Icons.access_time_rounded,
+                    value: _jamKunjungan,
+                    onTap: _pickJamKunjungan,
+                    error: _showJadwalError && _jamKunjungan == null,
+                  ),
+                ]),
 
-                const SizedBox(height: 32),
+                const SizedBox(height: 28),
 
                 // Action Bar (Wrap agar tombol turun ke baris berikutnya saat sempit)
                 Wrap(
@@ -503,63 +509,51 @@ class _PendaftaranPageState extends State<PendaftaranPage> {
     );
   }
 
-  Widget _buildSectionCard({
+  Widget _buildSectionHeader({
     required String title,
     required String subtitle,
     required IconData icon,
-    required Widget child,
   }) {
-    return Container(
-      padding: EdgeInsets.all(context.scaleSpace(16, medium: 20, expanded: 22)),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(icon, color: AppColors.heroButton, size: 20),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      softWrap: true,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textDark,
-                        fontFamily: 'Inter',
-                      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: AppColors.heroButton, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    softWrap: true,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textDark,
+                      fontFamily: 'Inter',
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      softWrap: true,
-                      style: const TextStyle(
-                        fontSize: 11.5,
-                        color: AppColors.textMuted,
-                        fontFamily: 'Inter',
-                      ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    softWrap: true,
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      color: AppColors.textMuted,
+                      fontFamily: 'Inter',
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-          ),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
-            child: Divider(height: 1, color: Color(0xFFF1F5F9)),
-          ),
-          child,
-        ],
-      ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        const Divider(height: 1, color: AppColors.sectionCardBg),
+      ],
     );
   }
 
