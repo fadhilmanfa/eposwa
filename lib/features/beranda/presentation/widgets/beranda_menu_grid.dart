@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:eposwa/core/responsive/app_responsive.dart';
+import 'package:eposwa/features/auth/presentation/pages/login_page.dart';
 import 'package:eposwa/features/beranda/presentation/widgets/beranda_menu_card.dart';
 
 /// Grid 3 Card Layanan - Rata kiri & mengambang (floating) naik menimpa setengah jumbotron.
@@ -21,7 +22,9 @@ class BerandaMenuGrid extends StatelessWidget {
         bottom: padBottom > overlap ? padBottom - overlap : 8,
       ),
       child: AppContainer(
-        child: isCompact ? _buildCompactCards() : _buildWideCards(),
+        child: isCompact
+            ? _buildCompactCards(context)
+            : _buildWideCards(context),
       ),
     );
 
@@ -35,33 +38,43 @@ class BerandaMenuGrid extends StatelessWidget {
     );
   }
 
-  Widget _buildCompactCards() {
-    return const Column(
+  Widget _buildCompactCards(BuildContext context) {
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         BerandaMenuCard(
           label: 'Pendaftaran Pasien',
           icon: Icons.how_to_reg_rounded,
           description: 'Daftarkan diri atau anggota keluarga Anda untuk mendapatkan pendampingan berkala dari kader.',
+          onTap: () => _openLogin(context),
         ),
         SizedBox(height: 16),
         BerandaMenuCard(
           label: 'Skrining Jiwa Mandiri',
           icon: Icons.quiz_rounded,
           description: 'Evaluasi kondisi psikologis dengan kuesioner tervalidasi dan rekomendasi tindak lanjut.',
+          onTap: () => _openLogin(context),
         ),
         SizedBox(height: 16),
         BerandaMenuCard(
           label: 'Database & Rekapitulasi',
           icon: Icons.analytics_rounded,
           description: 'Pengelolaan data rekam posyandu, statistik kunjungan, serta arsip rujukan ke Puskesmas.',
+          onTap: () => _openLogin(context),
         ),
       ],
     );
   }
 
-  Widget _buildWideCards() {
-    return const Row(
+  /// Buka halaman Login (untuk kartu Database & Rekapitulasi saat ini).
+  void _openLogin(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => const LoginPage()),
+    );
+  }
+
+  Widget _buildWideCards(BuildContext context) {
+    return Row(
       mainAxisAlignment: MainAxisAlignment.start,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -70,6 +83,7 @@ class BerandaMenuGrid extends StatelessWidget {
             label: 'Pendaftaran Pasien',
             icon: Icons.how_to_reg_rounded,
             description: 'Daftarkan diri atau anggota keluarga Anda untuk mendapatkan pendampingan berkala dari kader.',
+            onTap: () => _openLogin(context),
           ),
         ),
         SizedBox(width: 24),
@@ -78,6 +92,7 @@ class BerandaMenuGrid extends StatelessWidget {
             label: 'Skrining Jiwa Mandiri',
             icon: Icons.quiz_rounded,
             description: 'Evaluasi kondisi psikologis dengan kuesioner tervalidasi dan rekomendasi tindak lanjut.',
+            onTap: () => _openLogin(context),
           ),
         ),
         SizedBox(width: 24),
@@ -86,6 +101,7 @@ class BerandaMenuGrid extends StatelessWidget {
             label: 'Database & Rekapitulasi',
             icon: Icons.analytics_rounded,
             description: 'Pengelolaan data rekam posyandu, statistik kunjungan, serta arsip rujukan ke Puskesmas.',
+            onTap: () => _openLogin(context),
           ),
         ),
       ],
@@ -120,15 +136,9 @@ class _OverlapWrapper extends SingleChildRenderObjectWidget {
 }
 
 class RenderOverlapWrapper extends RenderProxyBox {
-  RenderOverlapWrapper({required double overlap}) : _overlap = overlap; // ignore: prefer_initializing_formals
+  RenderOverlapWrapper({required this.overlap});
 
-  double _overlap;
-  set overlap(double value) {
-    if (_overlap == value) return;
-    _overlap = value;
-    markNeedsLayout();
-    markNeedsPaint();
-  }
+  double overlap;
 
   @override
   void performLayout() {
@@ -141,7 +151,7 @@ class RenderOverlapWrapper extends RenderProxyBox {
     final childSize = child!.size;
     // Tinggi wrapper dikurangi overlap agar Column/Sliver tinggi total
     // = jumbotron + kartu - overlap (visual presisi, tanpa gap).
-    final h = (childSize.height - _overlap).clamp(0.0, double.infinity);
+    final h = (childSize.height - overlap).clamp(0.0, double.infinity);
     size = Size(childSize.width, h);
   }
 
@@ -149,7 +159,7 @@ class RenderOverlapWrapper extends RenderProxyBox {
   void paint(PaintingContext context, Offset offset) {
     if (child == null) return;
     // Geser child ke atas sebesar overlap di fase paint, sinkron dengan layout.
-    context.paintChild(child!, offset + Offset(0, -_overlap));
+    context.paintChild(child!, offset + Offset(0, -overlap));
   }
 
   @override
@@ -157,7 +167,7 @@ class RenderOverlapWrapper extends RenderProxyBox {
     if (child == null) return false;
     // position lokal terhadap wrapper (0,0 di pojok kiri atas wrapper).
     // Child dipaint di offset (0, -overlap), jadi posisi lokal child = position + overlap.
-    final adjusted = Offset(position.dx, position.dy + _overlap);
+    final adjusted = Offset(position.dx, position.dy + overlap);
     if (adjusted.dx < 0 ||
         adjusted.dx > child!.size.width ||
         adjusted.dy < 0 ||

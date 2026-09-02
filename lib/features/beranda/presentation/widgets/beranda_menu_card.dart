@@ -32,25 +32,17 @@ class _BerandaMenuCardState extends State<BerandaMenuCard> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOut,
+        // Hanya animasi naik saat hover — tanpa shadow sama sekali
         transform: Matrix4.translationValues(0, _isHovered ? -4 : 0, 0),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: _isHovered ? AppColors.primaryLight : AppColors.borderLight,
-            width: _isHovered ? 1.5 : 1,
+            color: AppColors.borderLight,
+            width: 1,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: _isHovered
-                  ? AppColors.primary.withValues(alpha: 0.16)
-                  : Colors.black.withValues(alpha: 0.08),
-              blurRadius: _isHovered ? 28 : 20,
-              offset: Offset(0, _isHovered ? 12 : 8),
-            ),
-          ],
         ),
-        child: InkWell(
+        child: GestureDetector(
           onTap: widget.onTap ??
               () {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -62,7 +54,6 @@ class _BerandaMenuCardState extends State<BerandaMenuCard> {
                   ),
                 );
               },
-          borderRadius: BorderRadius.circular(20),
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Column(

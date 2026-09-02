@@ -34,6 +34,7 @@ class _BerandaNavbarState extends State<BerandaNavbar> {
     final isCompact = screenWidth < 640;
 
     return Container(
+      width: double.infinity, // Pastikan navbar selebar layar, bukan selebar konten
       height: 76,
       decoration: BoxDecoration(
         color: Colors.white,
@@ -51,19 +52,24 @@ class _BerandaNavbarState extends State<BerandaNavbar> {
           ),
         ],
       ),
-      child: AppContainer(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Padding(
+        // Full-width: pakai padding simetris langsung (bukan AppContainer maxWidth 1200),
+        // agar tombol Masuk benar-benar di tepi kanan layar dengan jarak yang sama
+        // seperti jarak logo di kiri.
+        padding: EdgeInsets.symmetric(
+          horizontal: isCompact ? 16 : 32,
+          vertical: 8,
+        ),
         child: Row(
+          // spaceBetween: brand di kiri, tombol aksi di ujung kanan (bukan Spacer,
+          // karena Flexible brand default flex:1 membuat Spacer tidak mengisi penuh).
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             // Brand Logo & Title (Flexible agar tidak overflow saat window sempit)
             Flexible(
               fit: FlexFit.loose,
               child: _buildBrand(context, isCompact: isCompact),
             ),
-
-            const SizedBox(width: 12),
-
-            const Spacer(),
 
             // Right CTA Button
             _buildCtaButton(context, isCompact: !showFullMenu),

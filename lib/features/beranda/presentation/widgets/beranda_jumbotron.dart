@@ -18,8 +18,10 @@ class BerandaJumbotron extends StatelessWidget {
   Widget build(BuildContext context) {
     final minHeight = context.scaleSize(360, medium: 420, expanded: 480, large: 520);
     final padVTop = context.scaleSpace(40, medium: 56, expanded: 72, large: 84);
-    // Beri ruang di bawah untuk card yang naik menimpa setengah jumbotron
-    final padVBottom = context.scaleSpace(80, medium: 110, expanded: 140, large: 160);
+    // Beri ruang di bawah untuk card yang naik menimpa setengah jumbotron.
+    // Harus SAMA dengan overlap di BerandaMenuGrid (50/80/110/130) agar tidak ada
+    // sisa jumbotron gelap yang terlihat di bawah kartu (tampak seperti shadow).
+    final padVBottom = context.scaleSpace(50, medium: 80, expanded: 110, large: 130);
 
     return Container(
       width: double.infinity,
