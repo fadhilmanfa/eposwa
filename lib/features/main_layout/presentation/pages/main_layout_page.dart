@@ -28,7 +28,7 @@ class _MainLayoutPageState extends State<MainLayoutPage> {
 
   final List<String> _pageTitles = const [
     'Beranda',
-    'Formulir Pendaftaran Peserta Baru',
+    'Formulir Data Diri',
     'Skrining & Penilaian Jiwa',
     'Database Pendaftaran Peserta',
   ];
@@ -382,16 +382,21 @@ class _MainLayoutPageState extends State<MainLayoutPage> {
           // Simple Profile Avatar
           Row(
             children: [
-              IconButton(
-                icon: const Icon(Icons.notifications_none_rounded, size: 20),
-                tooltip: 'Notifikasi',
-                onPressed: () {},
-              ),
-              const SizedBox(width: 8),
+              _UpdateButton(),
+              const SizedBox(width: 10),
               _ProfileMenu(
                 onImport: _handleImportSql,
                 onExport: _handleExportSql,
                 onInstan: _handleInstanSql,
+                onSambungkanPc: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Text('Fitur "Sambungkan PC" segera hadir.'),
+                      behavior: SnackBarBehavior.floating,
+                      backgroundColor: AppColors.primary,
+                    ),
+                  );
+                },
                 onSettings: () => Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => const AdminManagementPage(),
@@ -407,80 +412,29 @@ class _MainLayoutPageState extends State<MainLayoutPage> {
   }
 }
 
-class _ProfileMenu extends StatefulWidget {
-  final VoidCallback onImport;
-  final VoidCallback onExport;
-  final VoidCallback onInstan;
-  final VoidCallback onSettings;
-  final VoidCallback onLogout;
-  const _ProfileMenu({
-    required this.onImport,
-    required this.onExport,
-    required this.onInstan,
-    required this.onSettings,
-    required this.onLogout,
-  });
+class _UpdateButton extends StatefulWidget {
+  const _UpdateButton();
+
   @override
-  State<_ProfileMenu> createState() => _ProfileMenuState();
+  State<_UpdateButton> createState() => _UpdateButtonState();
 }
 
-class _ProfileMenuState extends State<_ProfileMenu> {
+class _UpdateButtonState extends State<_UpdateButton> {
   final MenuController _controller = MenuController();
-  final MenuController _subController = MenuController();
 
   static const _menuStyle = MenuStyle(
     backgroundColor: WidgetStatePropertyAll(Colors.white),
     surfaceTintColor: WidgetStatePropertyAll(Colors.transparent),
-    elevation: WidgetStatePropertyAll(6),
-    shadowColor: WidgetStatePropertyAll(Color(0x14000000)),
+    elevation: WidgetStatePropertyAll(8),
+    shadowColor: WidgetStatePropertyAll(Color(0x1E000000)),
     shape: WidgetStatePropertyAll(
       RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(10)),
+        borderRadius: BorderRadius.all(Radius.circular(12)),
         side: BorderSide(color: AppColors.borderLight),
       ),
     ),
-    padding: WidgetStatePropertyAll(EdgeInsets.all(6)),
+    padding: WidgetStatePropertyAll(EdgeInsets.zero),
   );
-
-  // Satu style yang sama untuk SEMUA item (termasuk Berbagi Data & submenu)
-  static final ButtonStyle _itemStyle = MenuItemButton.styleFrom(
-    backgroundColor: Colors.white,
-    foregroundColor: AppColors.textDark,
-    overlayColor: const Color(0xFFCBD5E1),
-    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-    textStyle: const TextStyle(fontSize: 13.5, fontFamily: 'Inter'),
-  );
-
-  // Style submenu: lebar tetap 140 agar posisi kiri bisa diprediksi
-  static final ButtonStyle _subItemStyle = _itemStyle.copyWith(
-    minimumSize: const WidgetStatePropertyAll(Size(140, 40)),
-  );
-
-  Widget _item(
-    IconData icon,
-    String label,
-    VoidCallback onTap, {
-    Color iconColor = AppColors.textDark,
-    Widget? trailing,
-    ButtonStyle? style,
-  }) {
-    return MenuItemButton(
-      onPressed: () {
-        _controller.close();
-        onTap();
-      },
-      style: style ?? _itemStyle,
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: iconColor),
-          const SizedBox(width: 10),
-          Text(label, style: const TextStyle(color: AppColors.textDark)),
-          if (trailing != null) ...[const Spacer(), trailing],
-        ],
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -488,108 +442,537 @@ class _ProfileMenuState extends State<_ProfileMenu> {
       controller: _controller,
       style: _menuStyle,
       alignmentOffset: const Offset(0, 8),
-      onClose: () => _subController.close(),
       menuChildren: [
-        // Berbagi Data: MenuItemButton yang sama, submenu hover di samping KIRI
-        MenuAnchor(
-          controller: _subController,
-          style: _menuStyle,
-          // submenu lebar = 140 + padding menu 12 = 152; geser ke kiri
-          alignmentOffset: const Offset(-152, -40),
-          menuChildren: [
-            _item(
-              Icons.download_rounded,
-              'Import',
-              widget.onImport,
-              iconColor: AppColors.primary,
-              style: _subItemStyle,
+        Container(
+          width: 280,
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFEFF6FF),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.arrow_upward_rounded,
+                  color: AppColors.primary,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Versi Baru Tersedia',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textDark,
+                  fontFamily: 'Inter',
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Versi 2.0.0',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  color: AppColors.textMuted,
+                  fontFamily: 'Inter',
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () => _controller.close(),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: const Text(
+                    'Update Sekarang',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+      builder: (context, controller, child) {
+        final isOpen = controller.isOpen;
+        return InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: () => isOpen ? controller.close() : controller.open(),
+          hoverColor: AppColors.primary.withValues(alpha: 0.08),
+          child: Container(
+            height: 38,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: isOpen
+                  ? AppColors.primary.withValues(alpha: 0.08)
+                  : Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: isOpen ? AppColors.primary : AppColors.borderMedium,
+                width: 1,
+              ),
             ),
-            _item(
-              Icons.upload_rounded,
-              'Export',
-              widget.onExport,
-              iconColor: AppColors.primary,
-              style: _subItemStyle,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.arrow_upward_rounded,
+                  size: 17,
+                  color: isOpen ? AppColors.primary : AppColors.primary,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Update',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: isOpen ? AppColors.primary : AppColors.primary,
+                    fontFamily: 'Inter',
+                  ),
+                ),
+              ],
             ),
-            _item(
-              Icons.bolt_rounded,
-              'Instan',
-              widget.onInstan,
-              iconColor: const Color(0xFFF59E0B),
-              style: _subItemStyle,
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ProfileMenu extends StatefulWidget {
+  final VoidCallback onImport;
+  final VoidCallback onExport;
+  final VoidCallback onInstan;
+  final VoidCallback onSambungkanPc;
+  final VoidCallback onSettings;
+  final VoidCallback onLogout;
+
+  const _ProfileMenu({
+    required this.onImport,
+    required this.onExport,
+    required this.onInstan,
+    required this.onSambungkanPc,
+    required this.onSettings,
+    required this.onLogout,
+  });
+
+  @override
+  State<_ProfileMenu> createState() => _ProfileMenuState();
+}
+
+class _ProfileMenuState extends State<_ProfileMenu> {
+  final MenuController _controller = MenuController();
+
+  static const _menuStyle = MenuStyle(
+    backgroundColor: WidgetStatePropertyAll(Colors.white),
+    surfaceTintColor: WidgetStatePropertyAll(Colors.transparent),
+    elevation: WidgetStatePropertyAll(8),
+    shadowColor: WidgetStatePropertyAll(Color(0x1E000000)),
+    shape: WidgetStatePropertyAll(
+      RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(12)),
+        side: BorderSide(color: AppColors.borderLight),
+      ),
+    ),
+    padding: WidgetStatePropertyAll(EdgeInsets.zero),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final admin = SessionService.currentAdmin;
+    final displayName = admin?.namaLengkap.isNotEmpty == true
+        ? admin!.namaLengkap
+        : 'Admin';
+    final initial = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'A';
+
+    return MenuAnchor(
+      controller: _controller,
+      style: _menuStyle,
+      alignmentOffset: const Offset(0, 8),
+      menuChildren: [
+        _ProfileDropdownCard(
+          adminName: displayName,
+          username: admin?.username,
+          initial: initial,
+          onImport: () {
+            _controller.close();
+            widget.onImport();
+          },
+          onExport: () {
+            _controller.close();
+            widget.onExport();
+          },
+          onInstan: () {
+            _controller.close();
+            widget.onInstan();
+          },
+          onSambungkanPc: () {
+            _controller.close();
+            widget.onSambungkanPc();
+          },
+          onSettings: () {
+            _controller.close();
+            widget.onSettings();
+          },
+          onLogout: () {
+            _controller.close();
+            widget.onLogout();
+          },
+        ),
+      ],
+      builder: (context, controller, child) {
+        final isOpen = controller.isOpen;
+        return InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: () => isOpen ? controller.close() : controller.open(),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            height: 38,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: isOpen
+                  ? AppColors.primary.withValues(alpha: 0.08)
+                  : Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: isOpen ? AppColors.primary : AppColors.borderMedium,
+                width: 1,
+              ),
             ),
-          ],
-          child: Listener(
-            onPointerHover: (_) {
-              if (!_subController.isOpen) _subController.open();
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircleAvatar(
+                  radius: 12,
+                  backgroundColor: AppColors.primary,
+                  child: Text(
+                    initial,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 120),
+                  child: Text(
+                    displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: isOpen ? AppColors.primary : AppColors.textDark,
+                      fontFamily: 'Inter',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(
+                  isOpen
+                      ? Icons.arrow_drop_up_rounded
+                      : Icons.arrow_drop_down_rounded,
+                  size: 20,
+                  color: isOpen ? AppColors.primary : AppColors.textMuted,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ProfileDropdownCard extends StatefulWidget {
+  final String adminName;
+  final String? username;
+  final String initial;
+  final VoidCallback onImport;
+  final VoidCallback onExport;
+  final VoidCallback onInstan;
+  final VoidCallback onSambungkanPc;
+  final VoidCallback onSettings;
+  final VoidCallback onLogout;
+
+  const _ProfileDropdownCard({
+    required this.adminName,
+    required this.username,
+    required this.initial,
+    required this.onImport,
+    required this.onExport,
+    required this.onInstan,
+    required this.onSambungkanPc,
+    required this.onSettings,
+    required this.onLogout,
+  });
+
+  @override
+  State<_ProfileDropdownCard> createState() => _ProfileDropdownCardState();
+}
+
+class _ProfileDropdownCardState extends State<_ProfileDropdownCard> {
+  bool _isBerbagiExpanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 250,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Header Profil
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: const BoxDecoration(
+              color: Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+            ),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 17,
+                  backgroundColor: AppColors.primary,
+                  child: Text(
+                    widget.initial,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        widget.adminName,
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textDark,
+                          fontFamily: 'Inter',
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        widget.username != null
+                            ? '@${widget.username}'
+                            : 'Administrator',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textMuted,
+                          fontFamily: 'Inter',
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, thickness: 1, color: AppColors.borderLight),
+
+          // Menu Accordion "Berbagi Data"
+          InkWell(
+            onTap: () {
+              setState(() {
+                _isBerbagiExpanded = !_isBerbagiExpanded;
+              });
             },
-            child: MenuItemButton(
-              onPressed: () => _subController.isOpen
-                  ? _subController.close()
-                  : _subController.open(),
-              style: _itemStyle,
-              child: const Row(
+            hoverColor: const Color(0xFFF1F5F9),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: Row(
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.share_outlined,
                     size: 18,
                     color: AppColors.textDark,
                   ),
-                  SizedBox(width: 10),
-                  Text(
-                    'Berbagi Data',
-                    style: TextStyle(color: AppColors.textDark),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Text(
+                      'Berbagi Data',
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textDark,
+                        fontFamily: 'Inter',
+                      ),
+                    ),
                   ),
-                  Spacer(),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    size: 18,
-                    color: AppColors.textMuted,
+                  AnimatedRotation(
+                    turns: _isBerbagiExpanded ? 0.5 : 0.0,
+                    duration: const Duration(milliseconds: 200),
+                    child: const Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      size: 18,
+                      color: AppColors.textMuted,
+                    ),
                   ),
                 ],
               ),
             ),
           ),
-        ),
-        const Divider(height: 1, indent: 12, endIndent: 12),
-        MouseRegion(
-          onEnter: (_) => _subController.close(),
-          child: _item(
-            Icons.settings_outlined,
-            'Pengaturan',
-            widget.onSettings,
-          ),
-        ),
-        const Divider(height: 1, indent: 12, endIndent: 12),
-        MouseRegion(
-          onEnter: (_) => _subController.close(),
-          child: _item(
-            Icons.logout_rounded,
-            'Keluar',
-            widget.onLogout,
-            iconColor: const Color(0xFFEF4444),
-          ),
-        ),
-      ],
-      child: GestureDetector(
-        onTap: () =>
-            _controller.isOpen ? _controller.close() : _controller.open(),
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: const CircleAvatar(
-            radius: 14,
-            backgroundColor: AppColors.primary,
-            child: Text(
-              'A',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
+
+          // Submenu Items when expanded
+          AnimatedCrossFade(
+            firstChild: const SizedBox(width: double.infinity, height: 0),
+            secondChild: Container(
+              color: const Color(0xFFF8FAFC),
+              child: Column(
+                children: [
+                  _buildSubMenuItem(
+                    icon: Icons.download_rounded,
+                    title: 'Import Data',
+                    iconColor: AppColors.primary,
+                    onTap: widget.onImport,
+                  ),
+                  _buildSubMenuItem(
+                    icon: Icons.upload_rounded,
+                    title: 'Export Data',
+                    iconColor: AppColors.primary,
+                    onTap: widget.onExport,
+                  ),
+                  _buildSubMenuItem(
+                    icon: Icons.bolt_rounded,
+                    title: 'Instan',
+                    iconColor: const Color(0xFFF59E0B),
+                    onTap: widget.onInstan,
+                  ),
+                ],
               ),
             ),
+            crossFadeState: _isBerbagiExpanded
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 200),
           ),
+
+          const Divider(height: 1, thickness: 1, color: AppColors.borderLight),
+
+          // Sambungkan PC
+          _buildMenuItem(
+            icon: Icons.laptop_mac_rounded,
+            title: 'Sambungkan PC',
+            onTap: widget.onSambungkanPc,
+          ),
+
+          const Divider(height: 1, thickness: 1, color: AppColors.borderLight),
+
+          // Pengaturan
+          _buildMenuItem(
+            icon: Icons.settings_outlined,
+            title: 'Pengaturan',
+            onTap: widget.onSettings,
+          ),
+
+          const Divider(height: 1, thickness: 1, color: AppColors.borderLight),
+
+          // Keluar
+          _buildMenuItem(
+            icon: Icons.logout_rounded,
+            title: 'Keluar',
+            iconColor: const Color(0xFFEF4444),
+            textColor: const Color(0xFFEF4444),
+            borderRadius:
+                const BorderRadius.vertical(bottom: Radius.circular(12)),
+            onTap: widget.onLogout,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMenuItem({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+    Color iconColor = AppColors.textDark,
+    Color textColor = AppColors.textDark,
+    BorderRadius? borderRadius,
+  }) {
+    return InkWell(
+      borderRadius: borderRadius,
+      onTap: onTap,
+      hoverColor: const Color(0xFFF1F5F9),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: iconColor),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w500,
+                  color: textColor,
+                  fontFamily: 'Inter',
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSubMenuItem({
+    required IconData icon,
+    required String title,
+    required Color iconColor,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      hoverColor: const Color(0xFFEEF2F6),
+      child: Padding(
+        padding: const EdgeInsets.only(left: 32, right: 14, top: 9, bottom: 9),
+        child: Row(
+          children: [
+            Icon(icon, size: 16, color: iconColor),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.textDark,
+                  fontFamily: 'Inter',
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
+
