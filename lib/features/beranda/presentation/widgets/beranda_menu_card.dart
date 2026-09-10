@@ -43,6 +43,7 @@ class _BerandaMenuCardState extends State<BerandaMenuCard> {
           ),
         ),
         child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
           onTap: widget.onTap ??
               () {
                 ScaffoldMessenger.of(context).showSnackBar(
