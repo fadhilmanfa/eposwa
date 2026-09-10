@@ -45,3 +45,9 @@ app.*.map.json
 /android/app/release
 # Widget Preview related
 .widget_preview/
+
+# Editor tooling (Command Code)
+.commandcode/
+
+# Sertifikat signing lokal
+/windows/signing/
