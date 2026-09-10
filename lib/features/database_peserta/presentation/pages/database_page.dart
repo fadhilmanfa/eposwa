@@ -5,31 +5,63 @@ import 'package:eposwa/core/responsive/app_responsive.dart';
 import 'package:eposwa/core/widgets/excel_table.dart';
 import 'package:eposwa/features/database_peserta/presentation/pages/peserta_detail_page.dart';
 import 'package:eposwa/features/pendaftaran/data/peserta_repository.dart';
+import 'package:eposwa/features/skrining/data/skrining_repository.dart';
+import 'package:eposwa/features/skrining/domain/skrining_data.dart'
+    show SkriningKategori, SkriningKategoriX;
 
 class DatabasePage extends StatefulWidget {
   const DatabasePage({super.key});
 
   @override
-  State<DatabasePage> createState() => _DatabasePageState();
+  State<DatabasePage> createState() => DatabasePageState();
 }
 
-class _DatabasePageState extends State<DatabasePage> {
+class DatabasePageState extends State<DatabasePage> {
   final TextEditingController _searchController = TextEditingController();
-  String _selectedStatus = 'Semua';
+  String _selectedKategori = 'Semua';
   int? _sortColumnIndex;
   SortDirection? _sortDirection;
   List<Peserta> _pesertas = [];
+  Map<int, SkriningRecord> _latestSkrining = {};
   bool _loading = true;
   late PesertaRepository _repo;
+  late SkriningRepository _skriningRepo;
 
-  static const _statusOrder = [
-    'Terdaftar',
-    'Verifikasi Berkas',
-    'Belum Lengkap',
-    'Ditolak',
+  static const _kategoriOrder = [
+    'Risiko Rendah',
+    'Risiko Sedang',
+    'Risiko Tinggi',
+    'KRITIS',
+    'Belum Skrining',
   ];
 
-  int _statusRank(String status) => _statusOrder.indexOf(status);
+  int _kategoriRank(String label) {
+    final idx = _kategoriOrder.indexOf(label);
+    return idx == -1 ? _kategoriOrder.length : idx;
+  }
+
+  String _kategoriLabel(String kategori) {
+    switch (kategori) {
+      case 'rendah':
+        return SkriningKategori.rendah.label;
+      case 'sedang':
+        return SkriningKategori.sedang.label;
+      case 'tinggi':
+        return SkriningKategori.tinggi.label;
+      case 'kritis':
+        return SkriningKategori.kritis.label;
+      default:
+        return kategori;
+    }
+  }
+
+  String _kategoriOfPeserta(Peserta item) {
+    final rec = _latestSkrining[item.id];
+    if (rec == null) return 'Belum Skrining';
+    return _kategoriLabel(rec.kategori);
+  }
+
+  bool _isRedFlag(Peserta item) => _latestSkrining[item.id]?.isRedFlag ?? false;
 
   DateTime _parseTgl(String s) {
     final parts = s.split('/');
@@ -71,7 +103,7 @@ class _DatabasePageState extends State<DatabasePage> {
         sorted.sort((a, b) => dir * _parseTgl(a.tglDaftar).compareTo(_parseTgl(b.tglDaftar)));
         break;
       case 3:
-        sorted.sort((a, b) => dir * _statusRank(a.status).compareTo(_statusRank(b.status)));
+        sorted.sort((a, b) => dir * _kategoriRank(_kategoriOfPeserta(a)).compareTo(_kategoriRank(_kategoriOfPeserta(b))));
         break;
     }
     return sorted;
@@ -81,15 +113,34 @@ class _DatabasePageState extends State<DatabasePage> {
   void initState() {
     super.initState();
     _repo = PesertaRepository(getAppDatabase());
+    _skriningRepo = SkriningRepository(getAppDatabase());
     _load();
   }
+
+  /// Muat ulang data dari database. Dipanggil dari luar (mis. MainLayout)
+  /// setiap kali halaman Database menjadi tab aktif agar "Risiko Terakhir"
+  /// selalu segar setelah ada skrining/update dari halaman lain.
+  Future<void> refresh() => _load();
 
   Future<void> _load() async {
     setState(() => _loading = true);
     final list = await _repo.getAll();
+    final allSkrining = await _skriningRepo.getAll();
+    final latest = <int, SkriningRecord>{};
+    for (final rec in allSkrining) {
+      final existing = latest[rec.pesertaId];
+      if (existing == null ||
+          _parseTgl(rec.tanggal).isAfter(_parseTgl(existing.tanggal)) ||
+          (_parseTgl(rec.tanggal).isAtSameMomentAs(
+                  _parseTgl(existing.tanggal)) &&
+              rec.id > existing.id)) {
+        latest[rec.pesertaId] = rec;
+      }
+    }
     if (!mounted) return;
     setState(() {
       _pesertas = list;
+      _latestSkrining = latest;
       _loading = false;
     });
   }
@@ -107,12 +158,15 @@ class _DatabasePageState extends State<DatabasePage> {
     }
     final filtered = _pesertas.where((item) {
       final q = _searchController.text.toLowerCase();
+      final kategoriLabel = _kategoriOfPeserta(item);
       final matchesSearch = q.isEmpty ||
           item.nama.toLowerCase().contains(q) ||
           item.noHp.contains(q) ||
-          item.tglDaftar.toLowerCase().contains(q);
-      final matchesStatus = _selectedStatus == 'Semua' || item.status == _selectedStatus;
-      return matchesSearch && matchesStatus;
+          item.tglDaftar.toLowerCase().contains(q) ||
+          kategoriLabel.toLowerCase().contains(q);
+      final matchesKategori =
+          _selectedKategori == 'Semua' || kategoriLabel == _selectedKategori;
+      return matchesSearch && matchesKategori;
     }).toList();
     final sorted = _applySort(filtered);
 
@@ -155,17 +209,18 @@ class _DatabasePageState extends State<DatabasePage> {
                 ),
               );
 
-              final isFilterActive = _selectedStatus != 'Semua';
+              final isFilterActive = _selectedKategori != 'Semua';
               final filterLabel = isFilterActive
-                  ? 'Filter: $_selectedStatus'
+                  ? 'Filter: $_selectedKategori'
                   : 'Filter';
 
-              const statusOptions = [
+              const kategoriOptions = [
                 'Semua',
-                'Terdaftar',
-                'Verifikasi Berkas',
-                'Belum Lengkap',
-                'Ditolak',
+                'Risiko Rendah',
+                'Risiko Sedang',
+                'Risiko Tinggi',
+                'KRITIS',
+                'Belum Skrining',
               ];
 
               PopupMenuItem<String> buildOption(String value, bool selected) {
@@ -205,10 +260,10 @@ class _DatabasePageState extends State<DatabasePage> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 color: Colors.white,
-                onSelected: (v) => setState(() => _selectedStatus = v),
+                onSelected: (v) => setState(() => _selectedKategori = v),
                 itemBuilder: (context) => [
-                  for (final s in statusOptions)
-                    buildOption(s, _selectedStatus == s),
+                  for (final s in kategoriOptions)
+                    buildOption(s, _selectedKategori == s),
                 ],
                 child: Container(
                   height: 44,
@@ -325,7 +380,7 @@ class _DatabasePageState extends State<DatabasePage> {
                               flex: 2,
                               minWidth: 130,
                               sortable: false),
-                          ExcelColumn(label: 'Status', flex: 2, minWidth: 130),
+                          ExcelColumn(label: 'Risiko Terakhir', flex: 2, minWidth: 140),
                           ExcelColumn(
                               label: 'Aksi',
                               flex: 1.6,
@@ -336,6 +391,8 @@ class _DatabasePageState extends State<DatabasePage> {
                         sortDirection: _sortDirection,
                         onSort: _onSort,
                         rows: sorted.map((item) {
+                          final kategoriLabel = _kategoriOfPeserta(item);
+                          final isRedFlag = _isRedFlag(item);
                           return [
                             Text(
                               item.nama,
@@ -364,7 +421,7 @@ class _DatabasePageState extends State<DatabasePage> {
                               textAlign: TextAlign.center,
                               style: TextStyle(fontSize: context.scaleText(13, medium: 13.5, expanded: 14)),
                             ),
-                            _buildStatusBadge(item.status),
+                            _buildKategoriBadge(kategoriLabel, isRedFlag),
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               mainAxisAlignment: MainAxisAlignment.center,
@@ -376,14 +433,6 @@ class _DatabasePageState extends State<DatabasePage> {
                                   padding: EdgeInsets.zero,
                                   constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                                   onPressed: () => _showDetail(item),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.orange),
-                                  tooltip: 'Edit Data',
-                                  visualDensity: VisualDensity.compact,
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                                  onPressed: () {},
                                 ),
                                 IconButton(
                                   icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.redAccent),
@@ -469,6 +518,7 @@ class _DatabasePageState extends State<DatabasePage> {
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => PesertaDetailPage(peserta: item)),
     );
+    if (mounted) await _load();
   }
 
   Future<void> _confirmDelete(Peserta item) async {
@@ -526,26 +576,25 @@ class _DatabasePageState extends State<DatabasePage> {
     }
   }
 
-  Widget _buildStatusBadge(String status) {
+  Widget _buildKategoriBadge(String label, bool isRedFlag) {
     Color bg;
     Color fg;
 
-    switch (status) {
-      case 'Terdaftar':
-        bg = AppColors.badgeBgSuccess;
-        fg = AppColors.badgeTextSuccess;
-        break;
-      case 'Verifikasi Berkas':
-        bg = AppColors.badgeBgInfo;
-        fg = AppColors.badgeTextInfo;
-        break;
-      case 'Belum Lengkap':
-        bg = AppColors.badgeBgWarning;
-        fg = AppColors.badgeTextWarning;
-        break;
-      default:
-        bg = const Color(0xFFFEF2F2);
-        fg = Colors.redAccent;
+    if (label == 'Risiko Rendah') {
+      bg = AppColors.badgeBgSuccess;
+      fg = AppColors.badgeTextSuccess;
+    } else if (label == 'Risiko Sedang') {
+      bg = AppColors.badgeBgWarning;
+      fg = AppColors.badgeTextWarning;
+    } else if (label == 'Risiko Tinggi') {
+      bg = const Color(0xFFFEF2F2);
+      fg = Colors.redAccent;
+    } else if (label == 'Belum Skrining') {
+      bg = AppColors.sectionCardBg;
+      fg = AppColors.textMuted;
+    } else {
+      bg = const Color(0xFFFEE2E2);
+      fg = const Color(0xFFB91C1C);
     }
 
     return Container(
@@ -555,14 +604,15 @@ class _DatabasePageState extends State<DatabasePage> {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
-        status,
+        label,
         maxLines: 1,
         softWrap: false,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
           color: fg,
           fontWeight: FontWeight.bold,
-          fontSize: context.scaleText(11, medium: 11.5, expanded: 12),
+          fontSize: context.scaleText(isRedFlag ? 10.5 : 11,
+              medium: isRedFlag ? 11 : 11.5, expanded: isRedFlag ? 11.5 : 12),
         ),
       ),
     );

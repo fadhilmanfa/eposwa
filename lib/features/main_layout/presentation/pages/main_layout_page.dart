@@ -26,6 +26,9 @@ class _MainLayoutPageState extends State<MainLayoutPage> {
   late int _selectedIndex;
   bool _isSidebarCollapsed = false;
 
+  final GlobalKey<DatabasePageState> _databaseKey = GlobalKey();
+  final GlobalKey<TestPageState> _testKey = GlobalKey();
+
   final List<String> _pageTitles = const [
     'Beranda',
     'Formulir Data Diri',
@@ -43,6 +46,9 @@ class _MainLayoutPageState extends State<MainLayoutPage> {
     setState(() {
       _selectedIndex = index;
     });
+    // Segarkan data Database setiap kali tab Database dibuka, karena skor/
+    // kategori risiko bisa berubah dari tab Skrining & Penilaian / form lain.
+    if (index == 3) _databaseKey.currentState?.refresh();
   }
 
   void _handleLogout() {
@@ -319,12 +325,17 @@ class _MainLayoutPageState extends State<MainLayoutPage> {
                               onSuccessSubmit: () => _onSelectTab(
                                 3,
                               ), // Navigate to database on submit
-                              onSubmitAndContinue: () => _onSelectTab(
-                                2,
-                              ), // Navigate to skrining on submit
+                              onSubmitAndContinue: (data) {
+                                // Navigate ke tab Skrining & Penilaian lalu
+                                // buka form skrining dengan nama terisi.
+                                _onSelectTab(2);
+                                _testKey.currentState?.bukaSkriningBaru(
+                                  nama: data.nama,
+                                );
+                              },
                             ),
-                            const TestPage(),
-                            const DatabasePage(),
+                            TestPage(key: _testKey),
+                            DatabasePage(key: _databaseKey),
                           ],
                         ),
                       ),
