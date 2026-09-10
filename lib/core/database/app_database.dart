@@ -58,8 +58,6 @@ class Pesertas extends Table {
       boolean().named('pernah_konsultasi').nullable()();
   BoolColumn get pernahDapatObat =>
       boolean().named('pernah_dapat_obat').nullable()();
-  TextColumn get tglKunjungan => text().named('tgl_kunjungan').nullable()();
-  TextColumn get jamKunjungan => text().named('jam_kunjungan').nullable()();
   TextColumn get status => text().withDefault(const Constant('Terdaftar'))();
   TextColumn get tglDaftar => text().named('tgl_daftar')();
   IntColumn get createdBy => integer()
@@ -116,13 +114,27 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) async {
       await m.createAll();
       await _seed();
+    },
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        // Kolom jadwal kunjungan dihapus dari formulir pendaftaran.
+        await m.alterTable(
+          TableMigration(
+            pesertas,
+            columnTransformer: {
+              pesertas.pernahKonsultasi: pesertas.pernahKonsultasi,
+              pesertas.pernahDapatObat: pesertas.pernahDapatObat,
+            },
+          ),
+        );
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');

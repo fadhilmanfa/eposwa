@@ -1,20 +1,38 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:eposwa/core/constants/app_colors.dart';
 import 'package:eposwa/core/database/app_database.dart';
 import 'package:eposwa/core/responsive/app_responsive.dart';
 import 'package:eposwa/core/services/session_service.dart';
 import 'package:eposwa/core/widgets/animated_segmented_selector.dart';
+import 'package:eposwa/core/widgets/custom_title_bar.dart';
 import 'package:eposwa/features/pendaftaran/data/pendaftar_store.dart';
 import 'package:eposwa/features/pendaftaran/data/peserta_repository.dart';
+import 'package:eposwa/features/pendaftaran/domain/tanggal_lahir.dart';
+import 'package:eposwa/features/pendaftaran/presentation/widgets/tanggal_lahir_field.dart';
+
+/// Data pendaftar yang baru disimpan, diteruskan ke pemanggil saat
+/// alur "Simpan dan Lanjut Ujian" agar form skrining bisa terisi otomatis.
+class PesertaDaftar {
+  final int? pesertaId;
+  final String nama;
+
+  const PesertaDaftar({this.pesertaId, required this.nama});
+}
 
 class PendaftaranPage extends StatefulWidget {
   final VoidCallback? onSuccessSubmit;
-  final VoidCallback? onSubmitAndContinue;
+  final ValueChanged<PesertaDaftar>? onSubmitAndContinue;
+
+  /// Saat diisi, halaman menjadi mode edit: form ter-prefill data peserta
+  /// ini dan tombol simpan akan memperbarui baris yang sama (bukan insert).
+  final Peserta? pesertaAwal;
 
   const PendaftaranPage({
     super.key,
     this.onSuccessSubmit,
     this.onSubmitAndContinue,
+    this.pesertaAwal,
   });
 
   @override
@@ -25,19 +43,91 @@ class _PendaftaranPageState extends State<PendaftaranPage> {
   final _formKey = GlobalKey<FormState>();
 
   // Controllers
-  final _namaController = TextEditingController();
-  final _nikController = TextEditingController();
-  final _alamatController = TextEditingController();
-  final _noHpController = TextEditingController();
+  late final TextEditingController _namaController;
+  late final TextEditingController _nikController;
+  late final TextEditingController _alamatController;
+  late final TextEditingController _noHpController;
+  late final TextEditingController _lahirTglController;
+  late final TextEditingController _lahirThnController;
 
   String _jenisKelamin = 'Laki-laki';
+  int? _lahirBln;
   String? _tglLahir;
-  String? _jamKunjungan;
   bool? _pernahKonsultasi;
   bool? _pernahDapatObat;
   bool _isSubmitting = false;
   bool _showRiwayatError = false;
-  bool _showJadwalError = false;
+  bool _showLahirError = false;
+
+  /// Apakah form sedang dipakai untuk mengedit peserta yang sudah ada.
+  bool get _isEditMode => widget.pesertaAwal != null;
+
+  void _onLahirBulanChanged(int? bulan) {
+    setState(() {
+      _lahirBln = bulan;
+      _syncTglLahir();
+    });
+    if (_showLahirError) _formKey.currentState?.validate();
+  }
+
+  void _onLahirAngkaChanged(String _) {
+    _syncTglLahir();
+  }
+
+  void _onLahirTahunChanged(String value) {
+    _onLahirAngkaChanged(value);
+    if (_showLahirError) _formKey.currentState?.validate();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _initControllers();
+    if (_isEditMode) _isiDataPeserta();
+  }
+
+  void _initControllers() {
+    _namaController = TextEditingController();
+    _nikController = TextEditingController();
+    _alamatController = TextEditingController();
+    _noHpController = TextEditingController();
+    _lahirTglController = TextEditingController();
+    _lahirThnController = TextEditingController();
+  }
+
+  /// Mengisi seluruh field form dari data peserta saat mode edit.
+  void _isiDataPeserta() {
+    final p = widget.pesertaAwal!;
+    _namaController.text = p.nama;
+    _nikController.text = p.nik;
+    _alamatController.text = p.alamat ?? '';
+    _noHpController.text = p.noHp;
+    _jenisKelamin = p.jenisKelamin;
+    _pernahKonsultasi = p.pernahKonsultasi;
+    _pernahDapatObat = p.pernahDapatObat;
+
+    // Tanggal lahir (DD/MM/YYYY)
+    final lahir = _parseTanggalDb(p.tglLahir);
+    if (lahir != null) {
+      _lahirTglController.text = lahir.$1.toString().padLeft(2, '0');
+      _lahirBln = lahir.$2;
+      _lahirThnController.text = lahir.$3.toString();
+      _tglLahir = p.tglLahir;
+    }
+  }
+
+  /// Parse tanggal teks `DD/MM/YYYY` menjadi `(tanggal, bulan, tahun)`.
+  /// Mengembalikan null bila format tidak dikenali.
+  (int, int, int)? _parseTanggalDb(String? raw) {
+    if (raw == null) return null;
+    final parts = raw.split('/');
+    if (parts.length != 3) return null;
+    final d = int.tryParse(parts[0]);
+    final m = int.tryParse(parts[1]);
+    final y = int.tryParse(parts[2]);
+    if (d == null || m == null || y == null) return null;
+    return (d, m, y);
+  }
 
   @override
   void dispose() {
@@ -45,20 +135,45 @@ class _PendaftaranPageState extends State<PendaftaranPage> {
     _nikController.dispose();
     _alamatController.dispose();
     _noHpController.dispose();
+    _lahirTglController.dispose();
+    _lahirThnController.dispose();
     super.dispose();
+  }
+
+  int? get _lahirTglParsed =>
+      TanggalLahir.parseTanggal(_lahirTglController.text);
+
+  int? get _lahirThnParsed =>
+      TanggalLahir.parseTahun(_lahirThnController.text);
+
+  bool _lahirValid() {
+    if (_lahirBln == null) return false;
+    if (TanggalLahir.errorTanggal(
+          _lahirTglController.text,
+          bulan: _lahirBln,
+          tahun: _lahirThnParsed,
+        ) !=
+        null) {
+      return false;
+    }
+    if (TanggalLahir.errorTahun(_lahirThnController.text) != null) {
+      return false;
+    }
+    return true;
   }
 
   bool _validate() {
     final formValid = _formKey.currentState?.validate() ?? false;
+    final lahirValid = _lahirValid();
+    if (lahirValid) _syncTglLahir();
     final riwayatValid = _pernahKonsultasi != null && _pernahDapatObat != null;
-    final jadwalValid = _tglLahir != null && _jamKunjungan != null;
 
     setState(() {
+      _showLahirError = !lahirValid;
       _showRiwayatError = !riwayatValid;
-      _showJadwalError = !jadwalValid;
     });
 
-    if (!formValid || !riwayatValid || !jadwalValid) {
+    if (!formValid || !lahirValid || !riwayatValid) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Mohon lengkapi semua bidang isian yang wajib!'),
@@ -68,6 +183,14 @@ class _PendaftaranPageState extends State<PendaftaranPage> {
       return false;
     }
     return true;
+  }
+
+  void _syncTglLahir() {
+    _tglLahir = TanggalLahir.format(
+      _lahirTglParsed,
+      _lahirBln,
+      _lahirThnParsed,
+    );
   }
 
   Future<void> _handleSubmit() async {
@@ -81,8 +204,26 @@ class _PendaftaranPageState extends State<PendaftaranPage> {
 
     setState(() => _isSubmitting = false);
 
-    _simpanKeStore();
+    final tersimpan = await _simpanKeStore();
 
+    // Mode edit: langsung kembali ke pemanggil (halaman detail) dengan
+    // data terbaru agar tampilan ikut segar.
+    if (_isEditMode) {
+      if (!mounted) return;
+      if (tersimpan == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Gagal menyimpan perubahan. Silakan coba lagi.'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+        return;
+      }
+      Navigator.of(context).pop<Peserta>(widget.pesertaAwal);
+      return;
+    }
+
+    if (!mounted) return;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -143,13 +284,23 @@ class _PendaftaranPageState extends State<PendaftaranPage> {
 
     setState(() => _isSubmitting = false);
 
-    _simpanKeStore();
+    // Mode edit: tombol "Simpan dan Lanjut Ujian" tidak dipakai.
+    if (_isEditMode) return;
+
+    final pesertaId = await _simpanKeStore();
+
+    // Panggil callback dulu (membawa data peserta) sebelum form di-reset,
+    // supaya halaman skrining bisa langsung terisi nama peserta ini.
+    widget.onSubmitAndContinue?.call(
+      PesertaDaftar(pesertaId: pesertaId, nama: _namaController.text.trim()),
+    );
 
     _resetForm();
-    widget.onSubmitAndContinue?.call();
   }
 
-  Future<void> _simpanKeStore() async {
+  /// Simpan peserta ke store legacy & database. Mengembalikan id peserta
+  /// (baris baru atau yang sudah ada dengan NIK sama) agar bisa diteruskan.
+  Future<int?> _simpanKeStore() async {
     // keep legacy store for backward compat
     PendaftarStore.instance.add(
       Pendaftar(
@@ -162,9 +313,30 @@ class _PendaftaranPageState extends State<PendaftaranPage> {
     try {
       final db = getAppDatabase();
       final repo = PesertaRepository(db);
+
+      // Mode edit: perbarui baris yang sama, pertahankan NIK & kode asli.
+      if (_isEditMode) {
+        final id = widget.pesertaAwal!.id;
+        await repo.updatePeserta(
+          PesertasCompanion(
+            nama: Value(_namaController.text.trim()),
+            noHp: Value(_noHpController.text.trim()),
+            jenisKelamin: Value(_jenisKelamin),
+            tglLahir: Value(_tglLahir),
+            alamat: Value(_alamatController.text.trim().isEmpty
+                ? null
+                : _alamatController.text.trim()),
+            pernahKonsultasi: Value(_pernahKonsultasi),
+            pernahDapatObat: Value(_pernahDapatObat),
+          ),
+          id,
+        );
+        return id;
+      }
+
       final existing = await repo.getByNik(_nikController.text.trim());
-      if (existing != null) return; // skip duplicate NIK
-      await repo.insertPeserta(
+      if (existing != null) return existing.id; // skip duplicate NIK
+      return await repo.insertPeserta(
         nama: _namaController.text.trim(),
         nik: _nikController.text.trim(),
         noHp: _noHpController.text.trim(),
@@ -173,60 +345,101 @@ class _PendaftaranPageState extends State<PendaftaranPage> {
         alamat: _alamatController.text.trim().isEmpty ? null : _alamatController.text.trim(),
         pernahKonsultasi: _pernahKonsultasi,
         pernahDapatObat: _pernahDapatObat,
-        tglKunjungan: _tglLahir,
-        jamKunjungan: _jamKunjungan,
         createdBy: SessionService.currentAdmin?.id,
       );
-    } catch (_) {}
+    } catch (_) {
+      return null;
+    }
   }
 
   void _resetForm() {
     _formKey.currentState?.reset();
+    // Mode edit: kembali ke nilai awal peserta (bukan form kosong).
+    if (_isEditMode) {
+      setState(() {
+        _showLahirError = false;
+        _showRiwayatError = false;
+      });
+      _isiDataPeserta();
+      return;
+    }
     _namaController.clear();
     _nikController.clear();
     _alamatController.clear();
     _noHpController.clear();
+    _lahirTglController.clear();
+    _lahirThnController.clear();
     setState(() {
       _jenisKelamin = 'Laki-laki';
+      _lahirBln = null;
       _tglLahir = null;
-      _jamKunjungan = null;
       _pernahKonsultasi = null;
       _pernahDapatObat = null;
+      _showLahirError = false;
       _showRiwayatError = false;
-      _showJadwalError = false;
     });
-  }
-
-  Future<void> _pickTanggalLahir() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime(2000),
-      firstDate: DateTime(1970),
-      lastDate: DateTime.now(),
-    );
-    if (picked != null) {
-      setState(() {
-        _tglLahir =
-            '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
-      });
-    }
-  }
-
-  Future<void> _pickJamKunjungan() async {
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: const TimeOfDay(hour: 9, minute: 0),
-    );
-    if (picked != null) {
-      setState(() {
-        _jamKunjungan =
-            '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
-      });
-    }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Mode edit dibuka sebagai halaman penuh (push) dari detail peserta,
+    // jadi bungkus dengan title bar + tombol kembali.
+    if (_isEditMode) {
+      return Column(
+        children: [
+          const CustomTitleBar(),
+          Expanded(
+            child: Scaffold(
+              backgroundColor: AppColors.background,
+              appBar: AppBar(
+                backgroundColor: Colors.white,
+                surfaceTintColor: Colors.white,
+                elevation: 0,
+                scrolledUnderElevation: 0,
+                leading: IconButton(
+                  icon: const Icon(Icons.arrow_back_rounded, size: 20),
+                  tooltip: 'Kembali',
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+                title: const Text(
+                  'Edit Data Peserta',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textDark,
+                    fontFamily: 'Inter',
+                  ),
+                ),
+                bottom: const PreferredSize(
+                  preferredSize: Size.fromHeight(1),
+                  child: Divider(
+                      height: 1, thickness: 1, color: AppColors.borderLight),
+                ),
+              ),
+              body: Column(
+                children: [
+                  // Area form bisa di-scroll; action bar tetap di bawah.
+                  Expanded(child: _buildFormBody()),
+                  _buildActionFooter(),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // Mode non-edit: pendaftaran normal.
+    return Column(
+      children: [
+        // Area form bisa di-scroll; action bar tetap di bawah.
+        Expanded(child: _buildFormBody()),
+        _buildActionFooter(),
+      ],
+    );
+  }
+
+  Widget _buildFormBody() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Center(
@@ -269,15 +482,7 @@ class _PendaftaranPageState extends State<PendaftaranPage> {
                     ]),
                     const SizedBox(height: 16),
                     _buildFieldRow([
-                      _buildTextField(
-                        controller: null,
-                        label: 'Tanggal Lahir *',
-                        hint: 'DD/MM/YYYY',
-                        icon: Icons.calendar_month_outlined,
-                        value: _tglLahir,
-                        onTap: _pickTanggalLahir,
-                        error: _showJadwalError && _tglLahir == null,
-                      ),
+                      _buildTanggalLahirField(),
                       _buildGenderSelector(),
                     ]),
                     const SizedBox(height: 16),
@@ -345,135 +550,123 @@ class _PendaftaranPageState extends State<PendaftaranPage> {
                 ),
 
                 const SizedBox(height: 28),
-
-                // Seksi 3: Jadwal & Layanan
-                _buildSectionHeader(
-                  title: 'Jadwal & Layanan',
-                  subtitle: 'Pilih jadwal kunjungan yang diinginkan',
-                  icon: Icons.event_available_outlined,
-                ),
-                const SizedBox(height: 20),
-                _buildFieldRow([
-                  _buildTextField(
-                    controller: null,
-                    label: 'Tanggal Kunjungan *',
-                    hint: 'DD/MM/YYYY',
-                    icon: Icons.event_outlined,
-                    value: _tglLahir,
-                    onTap: _pickTanggalLahir,
-                    error: _showJadwalError && _tglLahir == null,
-                  ),
-                  _buildTextField(
-                    controller: null,
-                    label: 'Jam Kunjungan *',
-                    hint: 'HH:MM',
-                    icon: Icons.access_time_rounded,
-                    value: _jamKunjungan,
-                    onTap: _pickJamKunjungan,
-                    error: _showJadwalError && _jamKunjungan == null,
-                  ),
-                ]),
-
-                const SizedBox(height: 28),
-
-                // Action Bar (Wrap agar tombol turun ke baris berikutnya saat sempit)
-                Wrap(
-                  alignment: WrapAlignment.end,
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: _resetForm,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF64748B),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 14,
-                        ),
-                        side: const BorderSide(color: Color(0xFFCBD5E1)),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      icon: const Icon(Icons.refresh_rounded, size: 18),
-                      label: const Text(
-                        'Reset Form',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                    ElevatedButton.icon(
-                      onPressed: _isSubmitting
-                          ? null
-                          : _handleSubmitAndContinue,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 14,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      icon: _isSubmitting
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Icon(Icons.arrow_forward_rounded, size: 18),
-                      label: Text(
-                        _isSubmitting
-                            ? 'Menyimpan...'
-                            : 'Simpan dan Lanjut Ujian',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                    ElevatedButton.icon(
-                      onPressed: _isSubmitting ? null : _handleSubmit,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.heroButton,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 28,
-                          vertical: 14,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      icon: _isSubmitting
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Icon(Icons.send_rounded, size: 18),
-                      label: Text(
-                        _isSubmitting ? 'Menyimpan...' : 'Simpan',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 24),
               ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Footer aksi yang sticky di bawah area scroll form.
+  Widget _buildActionFooter() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: const Border(
+          top: BorderSide(color: AppColors.borderLight),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1200),
+              child: Row(
+                children: [
+                  OutlinedButton(
+                    onPressed: _resetForm,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF64748B),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 14,
+                      ),
+                      side: const BorderSide(color: Color(0xFFCBD5E1)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: const Text(
+                      'Reset Form',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  const Spacer(),
+                  // Kelompok tombol aksi utama; turun ke baris berikutnya
+                  // (tetap rata kanan) saat ruang sempit.
+                  Wrap(
+                    alignment: WrapAlignment.end,
+                    spacing: 12,
+                    runSpacing: 8,
+                    children: [
+                      // Mode edit tidak memakai alur "lanjut ujian", jadi
+                      // tombol tersebut disembunyikan.
+                      if (!_isEditMode)
+                        ElevatedButton(
+                          onPressed:
+                              _isSubmitting ? null : _handleSubmitAndContinue,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 14,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          child: Text(
+                            _isSubmitting
+                                ? 'Menyimpan...'
+                                : 'Simpan dan Lanjut Ujian',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ElevatedButton(
+                        onPressed: _isSubmitting ? null : _handleSubmit,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.heroButton,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 28,
+                            vertical: 14,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: Text(
+                          _isSubmitting
+                              ? 'Menyimpan...'
+                              : _isEditMode
+                                  ? 'Simpan Perubahan'
+                                  : 'Simpan',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -633,6 +826,18 @@ class _PendaftaranPageState extends State<PendaftaranPage> {
             ),
           ),
       ],
+    );
+  }
+
+  Widget _buildTanggalLahirField() {
+    return TanggalLahirField(
+      tanggalController: _lahirTglController,
+      tahunController: _lahirThnController,
+      bulan: _lahirBln,
+      showBulanError: _showLahirError,
+      onTanggalChanged: _onLahirAngkaChanged,
+      onTahunChanged: _onLahirTahunChanged,
+      onBulanChanged: _onLahirBulanChanged,
     );
   }
 

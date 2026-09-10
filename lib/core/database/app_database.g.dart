@@ -692,28 +692,6 @@ class $PesertasTable extends Pesertas with TableInfo<$PesertasTable, Peserta> {
       'CHECK ("pernah_dapat_obat" IN (0, 1))',
     ),
   );
-  static const VerificationMeta _tglKunjunganMeta = const VerificationMeta(
-    'tglKunjungan',
-  );
-  @override
-  late final GeneratedColumn<String> tglKunjungan = GeneratedColumn<String>(
-    'tgl_kunjungan',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _jamKunjunganMeta = const VerificationMeta(
-    'jamKunjungan',
-  );
-  @override
-  late final GeneratedColumn<String> jamKunjungan = GeneratedColumn<String>(
-    'jam_kunjungan',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
   static const VerificationMeta _statusMeta = const VerificationMeta('status');
   @override
   late final GeneratedColumn<String> status = GeneratedColumn<String>(
@@ -784,8 +762,6 @@ class $PesertasTable extends Pesertas with TableInfo<$PesertasTable, Peserta> {
     program,
     pernahKonsultasi,
     pernahDapatObat,
-    tglKunjungan,
-    jamKunjungan,
     status,
     tglDaftar,
     createdBy,
@@ -887,24 +863,6 @@ class $PesertasTable extends Pesertas with TableInfo<$PesertasTable, Peserta> {
         ),
       );
     }
-    if (data.containsKey('tgl_kunjungan')) {
-      context.handle(
-        _tglKunjunganMeta,
-        tglKunjungan.isAcceptableOrUnknown(
-          data['tgl_kunjungan']!,
-          _tglKunjunganMeta,
-        ),
-      );
-    }
-    if (data.containsKey('jam_kunjungan')) {
-      context.handle(
-        _jamKunjunganMeta,
-        jamKunjungan.isAcceptableOrUnknown(
-          data['jam_kunjungan']!,
-          _jamKunjunganMeta,
-        ),
-      );
-    }
     if (data.containsKey('status')) {
       context.handle(
         _statusMeta,
@@ -990,14 +948,6 @@ class $PesertasTable extends Pesertas with TableInfo<$PesertasTable, Peserta> {
         DriftSqlType.bool,
         data['${effectivePrefix}pernah_dapat_obat'],
       ),
-      tglKunjungan: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}tgl_kunjungan'],
-      ),
-      jamKunjungan: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}jam_kunjungan'],
-      ),
       status: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}status'],
@@ -1039,8 +989,6 @@ class Peserta extends DataClass implements Insertable<Peserta> {
   final String program;
   final bool? pernahKonsultasi;
   final bool? pernahDapatObat;
-  final String? tglKunjungan;
-  final String? jamKunjungan;
   final String status;
   final String tglDaftar;
   final int? createdBy;
@@ -1058,8 +1006,6 @@ class Peserta extends DataClass implements Insertable<Peserta> {
     required this.program,
     this.pernahKonsultasi,
     this.pernahDapatObat,
-    this.tglKunjungan,
-    this.jamKunjungan,
     required this.status,
     required this.tglDaftar,
     this.createdBy,
@@ -1087,12 +1033,6 @@ class Peserta extends DataClass implements Insertable<Peserta> {
     }
     if (!nullToAbsent || pernahDapatObat != null) {
       map['pernah_dapat_obat'] = Variable<bool>(pernahDapatObat);
-    }
-    if (!nullToAbsent || tglKunjungan != null) {
-      map['tgl_kunjungan'] = Variable<String>(tglKunjungan);
-    }
-    if (!nullToAbsent || jamKunjungan != null) {
-      map['jam_kunjungan'] = Variable<String>(jamKunjungan);
     }
     map['status'] = Variable<String>(status);
     map['tgl_daftar'] = Variable<String>(tglDaftar);
@@ -1125,12 +1065,6 @@ class Peserta extends DataClass implements Insertable<Peserta> {
       pernahDapatObat: pernahDapatObat == null && nullToAbsent
           ? const Value.absent()
           : Value(pernahDapatObat),
-      tglKunjungan: tglKunjungan == null && nullToAbsent
-          ? const Value.absent()
-          : Value(tglKunjungan),
-      jamKunjungan: jamKunjungan == null && nullToAbsent
-          ? const Value.absent()
-          : Value(jamKunjungan),
       status: Value(status),
       tglDaftar: Value(tglDaftar),
       createdBy: createdBy == null && nullToAbsent
@@ -1158,8 +1092,6 @@ class Peserta extends DataClass implements Insertable<Peserta> {
       program: serializer.fromJson<String>(json['program']),
       pernahKonsultasi: serializer.fromJson<bool?>(json['pernahKonsultasi']),
       pernahDapatObat: serializer.fromJson<bool?>(json['pernahDapatObat']),
-      tglKunjungan: serializer.fromJson<String?>(json['tglKunjungan']),
-      jamKunjungan: serializer.fromJson<String?>(json['jamKunjungan']),
       status: serializer.fromJson<String>(json['status']),
       tglDaftar: serializer.fromJson<String>(json['tglDaftar']),
       createdBy: serializer.fromJson<int?>(json['createdBy']),
@@ -1182,8 +1114,6 @@ class Peserta extends DataClass implements Insertable<Peserta> {
       'program': serializer.toJson<String>(program),
       'pernahKonsultasi': serializer.toJson<bool?>(pernahKonsultasi),
       'pernahDapatObat': serializer.toJson<bool?>(pernahDapatObat),
-      'tglKunjungan': serializer.toJson<String?>(tglKunjungan),
-      'jamKunjungan': serializer.toJson<String?>(jamKunjungan),
       'status': serializer.toJson<String>(status),
       'tglDaftar': serializer.toJson<String>(tglDaftar),
       'createdBy': serializer.toJson<int?>(createdBy),
@@ -1204,8 +1134,6 @@ class Peserta extends DataClass implements Insertable<Peserta> {
     String? program,
     Value<bool?> pernahKonsultasi = const Value.absent(),
     Value<bool?> pernahDapatObat = const Value.absent(),
-    Value<String?> tglKunjungan = const Value.absent(),
-    Value<String?> jamKunjungan = const Value.absent(),
     String? status,
     String? tglDaftar,
     Value<int?> createdBy = const Value.absent(),
@@ -1227,8 +1155,6 @@ class Peserta extends DataClass implements Insertable<Peserta> {
     pernahDapatObat: pernahDapatObat.present
         ? pernahDapatObat.value
         : this.pernahDapatObat,
-    tglKunjungan: tglKunjungan.present ? tglKunjungan.value : this.tglKunjungan,
-    jamKunjungan: jamKunjungan.present ? jamKunjungan.value : this.jamKunjungan,
     status: status ?? this.status,
     tglDaftar: tglDaftar ?? this.tglDaftar,
     createdBy: createdBy.present ? createdBy.value : this.createdBy,
@@ -1256,12 +1182,6 @@ class Peserta extends DataClass implements Insertable<Peserta> {
       pernahDapatObat: data.pernahDapatObat.present
           ? data.pernahDapatObat.value
           : this.pernahDapatObat,
-      tglKunjungan: data.tglKunjungan.present
-          ? data.tglKunjungan.value
-          : this.tglKunjungan,
-      jamKunjungan: data.jamKunjungan.present
-          ? data.jamKunjungan.value
-          : this.jamKunjungan,
       status: data.status.present ? data.status.value : this.status,
       tglDaftar: data.tglDaftar.present ? data.tglDaftar.value : this.tglDaftar,
       createdBy: data.createdBy.present ? data.createdBy.value : this.createdBy,
@@ -1284,8 +1204,6 @@ class Peserta extends DataClass implements Insertable<Peserta> {
           ..write('program: $program, ')
           ..write('pernahKonsultasi: $pernahKonsultasi, ')
           ..write('pernahDapatObat: $pernahDapatObat, ')
-          ..write('tglKunjungan: $tglKunjungan, ')
-          ..write('jamKunjungan: $jamKunjungan, ')
           ..write('status: $status, ')
           ..write('tglDaftar: $tglDaftar, ')
           ..write('createdBy: $createdBy, ')
@@ -1308,8 +1226,6 @@ class Peserta extends DataClass implements Insertable<Peserta> {
     program,
     pernahKonsultasi,
     pernahDapatObat,
-    tglKunjungan,
-    jamKunjungan,
     status,
     tglDaftar,
     createdBy,
@@ -1331,8 +1247,6 @@ class Peserta extends DataClass implements Insertable<Peserta> {
           other.program == this.program &&
           other.pernahKonsultasi == this.pernahKonsultasi &&
           other.pernahDapatObat == this.pernahDapatObat &&
-          other.tglKunjungan == this.tglKunjungan &&
-          other.jamKunjungan == this.jamKunjungan &&
           other.status == this.status &&
           other.tglDaftar == this.tglDaftar &&
           other.createdBy == this.createdBy &&
@@ -1352,8 +1266,6 @@ class PesertasCompanion extends UpdateCompanion<Peserta> {
   final Value<String> program;
   final Value<bool?> pernahKonsultasi;
   final Value<bool?> pernahDapatObat;
-  final Value<String?> tglKunjungan;
-  final Value<String?> jamKunjungan;
   final Value<String> status;
   final Value<String> tglDaftar;
   final Value<int?> createdBy;
@@ -1371,8 +1283,6 @@ class PesertasCompanion extends UpdateCompanion<Peserta> {
     this.program = const Value.absent(),
     this.pernahKonsultasi = const Value.absent(),
     this.pernahDapatObat = const Value.absent(),
-    this.tglKunjungan = const Value.absent(),
-    this.jamKunjungan = const Value.absent(),
     this.status = const Value.absent(),
     this.tglDaftar = const Value.absent(),
     this.createdBy = const Value.absent(),
@@ -1391,8 +1301,6 @@ class PesertasCompanion extends UpdateCompanion<Peserta> {
     this.program = const Value.absent(),
     this.pernahKonsultasi = const Value.absent(),
     this.pernahDapatObat = const Value.absent(),
-    this.tglKunjungan = const Value.absent(),
-    this.jamKunjungan = const Value.absent(),
     this.status = const Value.absent(),
     required String tglDaftar,
     this.createdBy = const Value.absent(),
@@ -1415,8 +1323,6 @@ class PesertasCompanion extends UpdateCompanion<Peserta> {
     Expression<String>? program,
     Expression<bool>? pernahKonsultasi,
     Expression<bool>? pernahDapatObat,
-    Expression<String>? tglKunjungan,
-    Expression<String>? jamKunjungan,
     Expression<String>? status,
     Expression<String>? tglDaftar,
     Expression<int>? createdBy,
@@ -1435,8 +1341,6 @@ class PesertasCompanion extends UpdateCompanion<Peserta> {
       if (program != null) 'program': program,
       if (pernahKonsultasi != null) 'pernah_konsultasi': pernahKonsultasi,
       if (pernahDapatObat != null) 'pernah_dapat_obat': pernahDapatObat,
-      if (tglKunjungan != null) 'tgl_kunjungan': tglKunjungan,
-      if (jamKunjungan != null) 'jam_kunjungan': jamKunjungan,
       if (status != null) 'status': status,
       if (tglDaftar != null) 'tgl_daftar': tglDaftar,
       if (createdBy != null) 'created_by': createdBy,
@@ -1457,8 +1361,6 @@ class PesertasCompanion extends UpdateCompanion<Peserta> {
     Value<String>? program,
     Value<bool?>? pernahKonsultasi,
     Value<bool?>? pernahDapatObat,
-    Value<String?>? tglKunjungan,
-    Value<String?>? jamKunjungan,
     Value<String>? status,
     Value<String>? tglDaftar,
     Value<int?>? createdBy,
@@ -1477,8 +1379,6 @@ class PesertasCompanion extends UpdateCompanion<Peserta> {
       program: program ?? this.program,
       pernahKonsultasi: pernahKonsultasi ?? this.pernahKonsultasi,
       pernahDapatObat: pernahDapatObat ?? this.pernahDapatObat,
-      tglKunjungan: tglKunjungan ?? this.tglKunjungan,
-      jamKunjungan: jamKunjungan ?? this.jamKunjungan,
       status: status ?? this.status,
       tglDaftar: tglDaftar ?? this.tglDaftar,
       createdBy: createdBy ?? this.createdBy,
@@ -1523,12 +1423,6 @@ class PesertasCompanion extends UpdateCompanion<Peserta> {
     if (pernahDapatObat.present) {
       map['pernah_dapat_obat'] = Variable<bool>(pernahDapatObat.value);
     }
-    if (tglKunjungan.present) {
-      map['tgl_kunjungan'] = Variable<String>(tglKunjungan.value);
-    }
-    if (jamKunjungan.present) {
-      map['jam_kunjungan'] = Variable<String>(jamKunjungan.value);
-    }
     if (status.present) {
       map['status'] = Variable<String>(status.value);
     }
@@ -1561,8 +1455,6 @@ class PesertasCompanion extends UpdateCompanion<Peserta> {
           ..write('program: $program, ')
           ..write('pernahKonsultasi: $pernahKonsultasi, ')
           ..write('pernahDapatObat: $pernahDapatObat, ')
-          ..write('tglKunjungan: $tglKunjungan, ')
-          ..write('jamKunjungan: $jamKunjungan, ')
           ..write('status: $status, ')
           ..write('tglDaftar: $tglDaftar, ')
           ..write('createdBy: $createdBy, ')
@@ -3019,8 +2911,6 @@ typedef $$PesertasTableCreateCompanionBuilder =
       Value<String> program,
       Value<bool?> pernahKonsultasi,
       Value<bool?> pernahDapatObat,
-      Value<String?> tglKunjungan,
-      Value<String?> jamKunjungan,
       Value<String> status,
       required String tglDaftar,
       Value<int?> createdBy,
@@ -3040,8 +2930,6 @@ typedef $$PesertasTableUpdateCompanionBuilder =
       Value<String> program,
       Value<bool?> pernahKonsultasi,
       Value<bool?> pernahDapatObat,
-      Value<String?> tglKunjungan,
-      Value<String?> jamKunjungan,
       Value<String> status,
       Value<String> tglDaftar,
       Value<int?> createdBy,
@@ -3152,16 +3040,6 @@ class $$PesertasTableFilterComposer
 
   ColumnFilters<bool> get pernahDapatObat => $composableBuilder(
     column: $table.pernahDapatObat,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get tglKunjungan => $composableBuilder(
-    column: $table.tglKunjungan,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get jamKunjungan => $composableBuilder(
-    column: $table.jamKunjungan,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3298,16 +3176,6 @@ class $$PesertasTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get tglKunjungan => $composableBuilder(
-    column: $table.tglKunjungan,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get jamKunjungan => $composableBuilder(
-    column: $table.jamKunjungan,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<String> get status => $composableBuilder(
     column: $table.status,
     builder: (column) => ColumnOrderings(column),
@@ -3399,16 +3267,6 @@ class $$PesertasTableAnnotationComposer
 
   GeneratedColumn<bool> get pernahDapatObat => $composableBuilder(
     column: $table.pernahDapatObat,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<String> get tglKunjungan => $composableBuilder(
-    column: $table.tglKunjungan,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<String> get jamKunjungan => $composableBuilder(
-    column: $table.jamKunjungan,
     builder: (column) => column,
   );
 
@@ -3512,8 +3370,6 @@ class $$PesertasTableTableManager
                 Value<String> program = const Value.absent(),
                 Value<bool?> pernahKonsultasi = const Value.absent(),
                 Value<bool?> pernahDapatObat = const Value.absent(),
-                Value<String?> tglKunjungan = const Value.absent(),
-                Value<String?> jamKunjungan = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<String> tglDaftar = const Value.absent(),
                 Value<int?> createdBy = const Value.absent(),
@@ -3531,8 +3387,6 @@ class $$PesertasTableTableManager
                 program: program,
                 pernahKonsultasi: pernahKonsultasi,
                 pernahDapatObat: pernahDapatObat,
-                tglKunjungan: tglKunjungan,
-                jamKunjungan: jamKunjungan,
                 status: status,
                 tglDaftar: tglDaftar,
                 createdBy: createdBy,
@@ -3552,8 +3406,6 @@ class $$PesertasTableTableManager
                 Value<String> program = const Value.absent(),
                 Value<bool?> pernahKonsultasi = const Value.absent(),
                 Value<bool?> pernahDapatObat = const Value.absent(),
-                Value<String?> tglKunjungan = const Value.absent(),
-                Value<String?> jamKunjungan = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 required String tglDaftar,
                 Value<int?> createdBy = const Value.absent(),
@@ -3571,8 +3423,6 @@ class $$PesertasTableTableManager
                 program: program,
                 pernahKonsultasi: pernahKonsultasi,
                 pernahDapatObat: pernahDapatObat,
-                tglKunjungan: tglKunjungan,
-                jamKunjungan: jamKunjungan,
                 status: status,
                 tglDaftar: tglDaftar,
                 createdBy: createdBy,

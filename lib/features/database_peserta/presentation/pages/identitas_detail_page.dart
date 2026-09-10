@@ -4,7 +4,7 @@ import 'package:eposwa/core/database/app_database.dart';
 import 'package:eposwa/core/widgets/custom_title_bar.dart';
 
 /// Halaman detail identitas peserta — menampilkan seluruh data formulir
-/// pendaftaran (Data Diri, Riwayat Kesehatan Jiwa, Jadwal & Layanan).
+/// pendaftaran (Data Diri & Riwayat Kesehatan Jiwa).
 /// Dibuka dari tombol "Lihat Detail" di halaman detail peserta.
 class IdentitasDetailPage extends StatelessWidget {
   final Peserta peserta;
@@ -79,15 +79,6 @@ class IdentitasDetailPage extends StatelessWidget {
                               _yaTidak(p.pernahKonsultasi)),
                           ('Pernah mendapatkan obat sebelumnya?',
                               _yaTidak(p.pernahDapatObat)),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      _buildSection(
-                        title: 'Jadwal & Layanan',
-                        icon: Icons.event_available_outlined,
-                        rows: [
-                          ('Tanggal Kunjungan', p.tglKunjungan ?? '-'),
-                          ('Jam Kunjungan', p.jamKunjungan ?? '-'),
                         ],
                       ),
                       const SizedBox(height: 24),

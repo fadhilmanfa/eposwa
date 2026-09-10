@@ -5,6 +5,8 @@ import 'package:eposwa/core/responsive/app_responsive.dart';
 import 'package:eposwa/core/widgets/custom_title_bar.dart';
 import 'package:eposwa/core/widgets/excel_table.dart';
 import 'package:eposwa/features/database_peserta/presentation/pages/identitas_detail_page.dart';
+import 'package:eposwa/features/pendaftaran/data/peserta_repository.dart';
+import 'package:eposwa/features/pendaftaran/presentation/pages/pendaftaran_page.dart';
 import 'package:eposwa/features/skrining/data/skrining_repository.dart';
 import 'package:eposwa/features/skrining/domain/skrining_data.dart' as ui;
 import 'package:eposwa/features/skrining/presentation/pages/skrining_detail_page.dart';
@@ -22,6 +24,10 @@ class PesertaDetailPage extends StatefulWidget {
 
 class _PesertaDetailPageState extends State<PesertaDetailPage> {
   late SkriningRepository _repo;
+
+  /// Data peserta yang sedang ditampilkan; diperbarui setelah edit agar
+  /// card identitas langsung menampilkan data terbaru.
+  late Peserta _peserta;
   List<SkriningRecord> _records = [];
   bool _loading = true;
 
@@ -29,12 +35,13 @@ class _PesertaDetailPageState extends State<PesertaDetailPage> {
   void initState() {
     super.initState();
     _repo = SkriningRepository(getAppDatabase());
+    _peserta = widget.peserta;
     _load();
   }
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final list = await _repo.getByPesertaId(widget.peserta.id);
+    final list = await _repo.getByPesertaId(_peserta.id);
     if (!mounted) return;
     setState(() {
       _records = list;
@@ -53,28 +60,21 @@ class _PesertaDetailPageState extends State<PesertaDetailPage> {
       orElse: () => ui.SkriningKategori.rendah,
     );
     final record = ui.SkriningRecord(
-      nama: widget.peserta.nama,
+      nama: _peserta.nama,
       tanggal: rec.tanggal,
       skor: rec.skor,
       kategori: kategori,
       isRedFlag: rec.isRedFlag,
       jawaban: jawaban,
+      id: rec.id,
+      pesertaId: rec.pesertaId,
     );
     if (!mounted) return;
     final updated = await Navigator.of(context).push<ui.SkriningRecord>(
       MaterialPageRoute(builder: (_) => SkriningDetailPage(record: record)),
     );
     if (updated != null && mounted) {
-      final hasil = ui.SkriningHasil.hitung(updated.jawaban);
-      await _repo.updateSkrining(
-        skriningId: rec.id,
-        tanggal: updated.tanggal,
-        skor: hasil.skor,
-        kategori: updated.kategori.name,
-        isRedFlag: hasil.isRedFlag,
-        rekomendasi: hasil.rekomendasi,
-        jawaban: updated.jawaban,
-      );
+      // Detail page -> form edit sudah meng-update DB; cukup muat ulang.
       await _load();
     }
   }
@@ -151,7 +151,7 @@ class _PesertaDetailPageState extends State<PesertaDetailPage> {
   }
 
   Widget _buildInfoCard() {
-    final p = widget.peserta;
+    final p = _peserta;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
@@ -199,32 +199,70 @@ class _PesertaDetailPageState extends State<PesertaDetailPage> {
           const SizedBox(height: 20),
           const Divider(height: 1, color: Color(0xFFF1F5F9)),
           const SizedBox(height: 14),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => IdentitasDetailPage(peserta: widget.peserta),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            IdentitasDetailPage(peserta: _peserta),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.visibility_outlined, size: 16),
+                  label: const Text('Lihat Detail',
+                      style: TextStyle(fontWeight: FontWeight.w600)),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
-                );
-              },
-              icon: const Icon(Icons.visibility_outlined, size: 16),
-              label: const Text('Lihat Detail',
-                  style: TextStyle(fontWeight: FontWeight.w600)),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
                 ),
               ),
-            ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: _openEditForm,
+                  icon: const Icon(Icons.edit_outlined, size: 16),
+                  label: const Text('Edit Detail',
+                      style: TextStyle(fontWeight: FontWeight.w600)),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.heroButton,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _openEditForm() async {
+    await Navigator.of(context).push<Peserta>(
+      MaterialPageRoute(
+        builder: (_) => PendaftaranPage(pesertaAwal: _peserta),
+      ),
+    );
+    // Form edit memanggil pop() dengan data ter-update; muat ulang dari DB
+    // agar card identitas & riwayat menampilkan data terkini.
+    if (!mounted) return;
+    final repo = PesertaRepository(getAppDatabase());
+    final updated = await repo.getById(_peserta.id);
+    if (updated != null && mounted) {
+      setState(() => _peserta = updated);
+    }
+    await _load();
   }
 
   Widget _detailRow(String label, String value) {
