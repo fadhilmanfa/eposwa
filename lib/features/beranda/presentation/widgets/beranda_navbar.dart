@@ -81,7 +81,7 @@ class _BerandaNavbarState extends State<BerandaNavbar> {
 
   Widget _buildBrand(BuildContext context, {required bool isCompact}) {
     // Ukuran logo responsif: lebih besar di desktop, lebih kecil di compact (mobile)
-    final logoHeight = isCompact ? 36.0 : 48.0;
+    final logoHeight = isCompact ? 28.0 : 36.0;
     final umsHeight = isCompact ? 32.0 : 42.0;
     // Sembunyikan logo UMS pada layar sangat sempit agar brand tidak overflow
     final showUmsLogo = context.screenWidth >= 480;
@@ -102,7 +102,7 @@ class _BerandaNavbarState extends State<BerandaNavbar> {
         ],
         // Logo Puskesmas
         Image.asset(
-          'assets/images/puskesmas.png',
+          'assets/images/logo_kab.png',
           height: logoHeight,
           fit: BoxFit.contain,
           errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),

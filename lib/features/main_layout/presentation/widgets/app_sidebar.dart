@@ -157,11 +157,13 @@ class _AppSidebarState extends State<AppSidebar> {
         ),
       ),
       child: Align(
-        alignment: Alignment.centerLeft,
+        alignment: widget.isCollapsed
+            ? const Alignment(0.4, 0)
+            : Alignment.centerLeft,
         child: widget.isCollapsed
             ? Image.asset(
-                'assets/images/puskesmas_collaps.png',
-                height: 44,
+                'assets/images/logo_kab.png',
+                height: 32,
                 fit: BoxFit.contain,
                 errorBuilder: (context, error, stackTrace) =>
                     const SizedBox.shrink(),
@@ -181,11 +183,41 @@ class _AppSidebarState extends State<AppSidebar> {
                     ),
                     const SizedBox(width: 8),
                     Image.asset(
-                      'assets/images/puskesmas.png',
-                      height: 52,
+                      'assets/images/logo_kab.png',
+                      height: 36,
                       fit: BoxFit.contain,
                       errorBuilder: (context, error, stackTrace) =>
                           const SizedBox.shrink(),
+                    ),
+                    const SizedBox(width: 10),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'EPOSWA',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            color: AppColors.textDark,
+                            fontFamily: 'Inter',
+                            letterSpacing: 0.5,
+                            height: 1.15,
+                          ),
+                        ),
+                        const SizedBox(height: 1),
+                        Text(
+                          'DASHBOARD',
+                          style: const TextStyle(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w400,
+                            color: Color(0xFF64748B),
+                            fontFamily: 'Inter',
+                            letterSpacing: 1,
+                            height: 1.2,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -221,31 +253,26 @@ class _SidebarTileState extends State<_SidebarTile> {
     final isSelected = widget.isSelected;
 
     return MouseRegion(
+      cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: Tooltip(
         message: widget.isCollapsed ? widget.item.title : '',
         child: Material(
-          color: Colors.transparent,
-          child: InkWell(
+          color: isSelected
+              ? activeColor.withValues(alpha: 0.10)
+              : (_isHovered ? AppColors.sectionCardBg : Colors.transparent),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          clipBehavior: Clip.antiAlias,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
             onTap: widget.onTap,
-            borderRadius: BorderRadius.circular(10),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
+            child: Padding(
               padding: EdgeInsets.only(
                 left: widget.isCollapsed ? 0 : 24,
                 right: widget.isCollapsed ? 0 : 12,
                 top: 11,
                 bottom: 11,
-              ),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? activeColor.withValues(alpha: 0.10)
-                    : (_isHovered
-                        ? const Color(0xFFF1F5F9)
-                        : Colors.transparent),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.transparent),
               ),
               child: FittedBox(
                 fit: BoxFit.scaleDown,

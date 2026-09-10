@@ -82,7 +82,7 @@ class _AppSplashScreenState extends State<AppSplashScreen>
                 children: [
                   Image.asset('assets/images/ums.png', height: 80),
                   const SizedBox(width: 28),
-                  Image.asset('assets/images/puskesmas.png', height: 80),
+                  Image.asset('assets/images/logo_kab.png', height: 60),
                 ],
               ),
               const SizedBox(height: 32),

@@ -260,8 +260,8 @@ class _LoginPageState extends State<LoginPage> {
                               const SizedBox(width: 14),
                               // Logo Puskesmas
                               Image.asset(
-                                'assets/images/puskesmas.png',
-                                height: 48,
+                                'assets/images/logo_kab.png',
+                                height: 36,
                                 fit: BoxFit.contain,
                                 errorBuilder: (context, error, stackTrace) =>
                                     const SizedBox.shrink(),
