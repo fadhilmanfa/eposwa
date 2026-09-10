@@ -14,7 +14,12 @@ import 'package:eposwa/features/skrining/domain/skrining_data.dart';
 class SkriningFormPage extends StatefulWidget {
   final SkriningRecord? initialRecord;
 
-  const SkriningFormPage({super.key, this.initialRecord});
+  /// Nama peserta yang langsung terisi saat membuka form baru (misalnya
+  /// dari alur "Simpan dan Lanjut Ujian" di pendaftaran). Tidak memicu
+  /// mode edit seperti [initialRecord].
+  final String? namaAwal;
+
+  const SkriningFormPage({super.key, this.initialRecord, this.namaAwal});
 
   @override
   State<SkriningFormPage> createState() => _SkriningFormPageState();
@@ -32,7 +37,9 @@ class _SkriningFormPageState extends State<SkriningFormPage> {
   void initState() {
     super.initState();
     final initial = widget.initialRecord;
-    _namaController = TextEditingController(text: initial?.nama ?? '');
+    _namaController = TextEditingController(
+      text: initial?.nama ?? widget.namaAwal ?? '',
+    );
     if (initial != null) {
       _jawaban = List<bool?>.from(initial.jawabanEfektif);
       // Pastikan panjang 10; pad dengan null jika kurang
@@ -88,24 +95,40 @@ class _SkriningFormPageState extends State<SkriningFormPage> {
       tanggal: tanggal,
       hasil: hasil,
       jawaban: List<bool?>.from(_jawaban),
+      id: widget.initialRecord?.id,
+      pesertaId: widget.initialRecord?.pesertaId,
     );
-    // Persist to DB if peserta exists; otherwise just return record for caller to handle
+    // Persist ke DB: mode edit meng-update baris yang sama, mode baru insert.
     try {
       final db = getAppDatabase();
       final pesertaRepo = PesertaRepository(db);
       final skriningRepo = SkriningRepository(db);
-      final peserta = await pesertaRepo.getByNama(record.nama);
+      final peserta = await (record.pesertaId != null
+          ? pesertaRepo.getById(record.pesertaId!)
+          : pesertaRepo.getByNama(record.nama));
       if (peserta != null) {
-        await skriningRepo.insertSkrining(
-          pesertaId: peserta.id,
-          tanggal: record.tanggal,
-          skor: hasil.skor,
-          kategori: hasil.kategori.name,
-          isRedFlag: hasil.isRedFlag,
-          rekomendasi: hasil.rekomendasi,
-          jawaban: List<bool?>.from(_jawaban),
-          createdBy: SessionService.currentAdmin?.id,
-        );
+        if (record.id != null) {
+          await skriningRepo.updateSkrining(
+            skriningId: record.id!,
+            tanggal: record.tanggal,
+            skor: hasil.skor,
+            kategori: hasil.kategori.name,
+            isRedFlag: hasil.isRedFlag,
+            rekomendasi: hasil.rekomendasi,
+            jawaban: List<bool?>.from(_jawaban),
+          );
+        } else {
+          await skriningRepo.insertSkrining(
+            pesertaId: peserta.id,
+            tanggal: record.tanggal,
+            skor: hasil.skor,
+            kategori: hasil.kategori.name,
+            isRedFlag: hasil.isRedFlag,
+            rekomendasi: hasil.rekomendasi,
+            jawaban: List<bool?>.from(_jawaban),
+            createdBy: SessionService.currentAdmin?.id,
+          );
+        }
       }
     } catch (_) {}
     if (!mounted) return;
@@ -162,7 +185,16 @@ class _SkriningFormPageState extends State<SkriningFormPage> {
                 const SizedBox(width: 8),
               ],
             ),
-            body: _hasil == null ? _buildForm() : _buildHasil(),
+            body: Column(
+              children: [
+                Expanded(
+                  child: _hasil == null ? _buildForm() : _buildHasil(),
+                ),
+                // Footer aksi sticky; hanya tampil saat form pertanyaan
+                // terbuka (belum dihitung).
+                if (_hasil == null) _buildActionFooter(),
+              ],
+            ),
           ),
         ),
       ],
@@ -186,10 +218,59 @@ class _SkriningFormPageState extends State<SkriningFormPage> {
                   child: _buildQuestionCard(q),
                 ),
               ),
-              const SizedBox(height: 8),
-              _buildSubmitButton(),
-              const SizedBox(height: 24),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Footer aksi sticky di bawah form pertanyaan; tombol rata kanan.
+  Widget _buildActionFooter() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: const Border(
+          top: BorderSide(color: AppColors.borderLight),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 860),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton(
+                  onPressed: _hitungHasil,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.heroButton,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 28,
+                      vertical: 14,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: const Text(
+                    'Hitung Hasil Skrining',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -368,27 +449,6 @@ class _SkriningFormPageState extends State<SkriningFormPage> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildSubmitButton() {
-    return SizedBox(
-      height: 48,
-      child: FilledButton.icon(
-        onPressed: _hitungHasil,
-        icon: const Icon(Icons.calculate_rounded, size: 20),
-        label: const Text(
-          'Hitung Hasil Skrining',
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-        ),
-        style: FilledButton.styleFrom(
-          backgroundColor: AppColors.heroButton,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
       ),
     );
   }

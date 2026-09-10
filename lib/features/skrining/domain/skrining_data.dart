@@ -168,6 +168,13 @@ class SkriningRecord {
   final bool isRedFlag;
   final List<bool?> jawaban;
 
+  /// Id baris skrining di database. Terisi saat mode edit sehingga form bisa
+  /// meng-update baris yang sama alih-alih membuat baris baru.
+  final int? id;
+
+  /// Id peserta terkait di database (dipakai saat insert dari form edit).
+  final int? pesertaId;
+
   const SkriningRecord({
     required this.nama,
     required this.tanggal,
@@ -175,6 +182,8 @@ class SkriningRecord {
     this.skor,
     this.isRedFlag = false,
     this.jawaban = const [],
+    this.id,
+    this.pesertaId,
   });
 
   SkriningRecord.fromHasil({
@@ -182,6 +191,8 @@ class SkriningRecord {
     required this.tanggal,
     required SkriningHasil hasil,
     List<bool?>? jawaban,
+    this.id,
+    this.pesertaId,
   })  : skor = hasil.skor,
         kategori = hasil.kategori,
         isRedFlag = hasil.isRedFlag,
@@ -213,6 +224,8 @@ class SkriningRecord {
     SkriningKategori? kategori,
     bool? isRedFlag,
     List<bool?>? jawaban,
+    int? id,
+    int? pesertaId,
   }) {
     return SkriningRecord(
       nama: nama ?? this.nama,
@@ -221,6 +234,8 @@ class SkriningRecord {
       skor: skor ?? this.skor,
       isRedFlag: isRedFlag ?? this.isRedFlag,
       jawaban: jawaban ?? this.jawaban,
+      id: id ?? this.id,
+      pesertaId: pesertaId ?? this.pesertaId,
     );
   }
 }

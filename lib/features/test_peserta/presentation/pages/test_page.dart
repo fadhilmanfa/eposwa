@@ -13,10 +13,10 @@ class TestPage extends StatefulWidget {
   const TestPage({super.key});
 
   @override
-  State<TestPage> createState() => _TestPageState();
+  State<TestPage> createState() => TestPageState();
 }
 
-class _TestPageState extends State<TestPage> {
+class TestPageState extends State<TestPage> {
   String _selectedFilter = 'Semua';
   final TextEditingController _searchController = TextEditingController();
   int? _sortColumnIndex;
@@ -42,14 +42,23 @@ class _TestPageState extends State<TestPage> {
     });
   }
 
-  Future<void> _openSkriningBaru() async {
+  /// Membuka form skrining baru, dengan nama peserta terisi otomatis bila
+  /// diberikan. Dipanggil dari luar (mis. MainLayout setelah pendaftaran)
+  /// sehingga daftar ikut dimuat ulang lebih dulu.
+  Future<void> bukaSkriningBaru({String? nama}) async {
+    await _load();
+    if (!mounted) return;
     final record = await Navigator.of(context).push<SkriningRecord>(
-      MaterialPageRoute(builder: (context) => const SkriningFormPage()),
+      MaterialPageRoute(
+        builder: (_) => SkriningFormPage(namaAwal: nama),
+      ),
     );
     if (record != null && mounted) {
       await _load();
     }
   }
+
+  Future<void> _openSkriningBaru() => bukaSkriningBaru();
 
   Future<void> _openEdit(SkriningWithPeserta item) async {
     // Convert to SkriningRecord for form
@@ -67,24 +76,15 @@ class _TestPageState extends State<TestPage> {
       kategori: kategori,
       isRedFlag: rec.isRedFlag,
       jawaban: jawaban,
+      id: rec.id,
+      pesertaId: rec.pesertaId,
     );
     if (!mounted) return;
     final updated = await Navigator.of(context).push<SkriningRecord>(
       MaterialPageRoute(builder: (context) => SkriningFormPage(initialRecord: record)),
     );
     if (updated != null && mounted) {
-      // update DB record
-      final newKategori = updated.kategori.name;
-      final hasil = SkriningHasil.hitung(updated.jawaban);
-      await _repo.updateSkrining(
-        skriningId: rec.id,
-        tanggal: updated.tanggal,
-        skor: hasil.skor,
-        kategori: newKategori,
-        isRedFlag: hasil.isRedFlag,
-        rekomendasi: hasil.rekomendasi,
-        jawaban: updated.jawaban,
-      );
+      // Form sudah meng-update baris DB yang sama saat mode edit.
       await _load();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -552,12 +552,22 @@ class _TestPageState extends State<TestPage> {
       return row?.jawaban;
     });
     final kategori = SkriningKategori.values.firstWhere((k) => k.name == rec.kategori, orElse: () => SkriningKategori.rendah);
-    final record = SkriningRecord(nama: item.peserta.nama, tanggal: rec.tanggal, skor: rec.skor, kategori: kategori, isRedFlag: rec.isRedFlag, jawaban: jawaban);
+    final record = SkriningRecord(
+      nama: item.peserta.nama,
+      tanggal: rec.tanggal,
+      skor: rec.skor,
+      kategori: kategori,
+      isRedFlag: rec.isRedFlag,
+      jawaban: jawaban,
+      id: rec.id,
+      pesertaId: rec.pesertaId,
+    );
     if (!mounted) return;
-    final updated = await Navigator.of(context).push<SkriningRecord>(MaterialPageRoute(builder: (_) => SkriningDetailPage(record: record)));
+    final updated = await Navigator.of(context).push<SkriningRecord>(
+      MaterialPageRoute(builder: (_) => SkriningDetailPage(record: record)),
+    );
     if (updated != null && mounted) {
-      final hasil = SkriningHasil.hitung(updated.jawaban);
-      await _repo.updateSkrining(skriningId: rec.id, tanggal: updated.tanggal, skor: hasil.skor, kategori: updated.kategori.name, isRedFlag: hasil.isRedFlag, rekomendasi: hasil.rekomendasi, jawaban: updated.jawaban);
+      // Detail page -> form edit sudah meng-update DB; cukup muat ulang.
       await _load();
     }
   }
