@@ -11,13 +11,16 @@ dependencies:
   window_manager: "^0.4.0"
   drift: "^2.24.1"
   sqlite3_flutter_libs: "^0.5.24"
+  sqlite3: "^3.5.2"
   path_provider: "^2.1.5"
   path: "^1.9.1"
   crypto: "^3.0.6"
+  archive: "^4.2.0"
   file_selector: "^0.9.4+1"
   file_picker: "^10.1.9"
   shared_preferences: "^2.3.3"
   inno_build: "^0.4.0"
+  package_info_plus: ^9.0.1
 dev_dependencies:
   flutter_test:
     sdk: "flutter"
@@ -29,7 +32,6 @@ msix_config:
   display_name: "eposwa"
   publisher_display_name: "Keperawatan UMS"
   identity_name: "ums.keperawatan.eposwa"
-  msix_version: "1.0.0.0"
   logo_path: "assets\\images\\ums.png"
   certificate_path: "windows\\signing\\eposwa_cert.pfx"
   publisher: "CN=Keperawatan UMS, O=Universitas Muhammadiyah Surakarta, C=ID"
