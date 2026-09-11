@@ -1,4 +1,4 @@
-/// Penyimpanan pendaftar in-memory (FE dummy) yang dipakai bersama
+/// Penyimpanan pendaftar in-memory yang dipakai bersama
 /// oleh form pendaftaran, daftar database, dan skrining.
 library;
 
@@ -19,33 +19,7 @@ class PendaftarStore {
 
   static final PendaftarStore instance = PendaftarStore._();
 
-  final List<Pendaftar> _pendaftar = [
-    const Pendaftar(
-      nama: 'Ahmad Fauzi',
-      nik: '3201984712040001',
-      program: 'Regular Pagi',
-    ),
-    const Pendaftar(
-      nama: 'Siti Aminah',
-      nik: '3201984712040002',
-      program: 'Regular Pagi',
-    ),
-    const Pendaftar(
-      nama: 'Budi Santoso',
-      nik: '3201984712040003',
-      program: 'Eksekutif',
-    ),
-    const Pendaftar(
-      nama: 'Dina Mariana',
-      nik: '3201984712040004',
-      program: 'Regular Sore',
-    ),
-    const Pendaftar(
-      nama: 'Eko Prasetyo',
-      nik: '3201984712040005',
-      program: 'Regular Pagi',
-    ),
-  ];
+  final List<Pendaftar> _pendaftar = [];
 
   List<Pendaftar> get all => List.unmodifiable(_pendaftar);
 

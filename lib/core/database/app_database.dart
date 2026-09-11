@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:crypto/crypto.dart';
 import 'dart:convert';
+import 'package:eposwa/core/database/db_safety.dart';
 
 part 'app_database.g.dart';
 
@@ -113,14 +114,17 @@ class AppDatabase extends _$AppDatabase {
 
   AppDatabase.forTesting(super.e);
 
+  /// Versi skema saat ini; dipakai [DbSafety] untuk mengenali kebutuhan migrasi.
+  static const int currentSchemaVersion = 2;
+
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => currentSchemaVersion;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) async {
       await m.createAll();
-      await _seed();
+      await _seedAdmin();
     },
     onUpgrade: (m, from, to) async {
       if (from < 2) {
@@ -139,19 +143,20 @@ class AppDatabase extends _$AppDatabase {
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
       if (details.wasCreated) return;
-      // ensure seed if empty (for existing db without seed)
+      // pastikan akun admin default tersedia agar bisa login
       final adminCount = await (selectOnly(
         admins,
       )..addColumns([admins.id.count()])).getSingle();
       final count = adminCount.read(admins.id.count()) ?? 0;
       if (count == 0) {
-        await _seed();
+        await _seedAdmin();
       }
+      // Penanda upgrade hanya dihapus setelah pembukaan benar-benar sukses.
+      await DbSafety.afterOpenSuccess();
     },
   );
 
-  Future<void> _seed() async {
-    // seed admin
+  Future<void> _seedAdmin() async {
     await into(admins).insert(
       AdminsCompanion.insert(
         username: 'admin',
@@ -161,239 +166,6 @@ class AppDatabase extends _$AppDatabase {
         isActive: const Value(true),
       ),
     );
-
-    // seed 5 peserta
-    final pesertaData = [
-      {
-        'kode': 'REG-2026-001',
-        'nama': 'Ahmad Fauzi',
-        'nik': '3201984712040001',
-        'jk': 'Laki-laki',
-        'alamat': 'Jl. Merdeka No. 1, Surakarta',
-        'noHp': '081234567890',
-        'program': 'Regular Pagi',
-        'status': 'Terdaftar',
-        'tglDaftar': '27/08/2026',
-      },
-      {
-        'kode': 'REG-2026-002',
-        'nama': 'Siti Aminah',
-        'nik': '3201984712040002',
-        'jk': 'Perempuan',
-        'alamat': 'Jl. Melati No. 12, Surakarta',
-        'noHp': '081298765432',
-        'program': 'Regular Pagi',
-        'status': 'Terdaftar',
-        'tglDaftar': '27/08/2026',
-      },
-      {
-        'kode': 'REG-2026-003',
-        'nama': 'Budi Santoso',
-        'nik': '3201984712040003',
-        'jk': 'Laki-laki',
-        'alamat': 'Jl. Kenanga No. 5, Surakarta',
-        'noHp': '085712345678',
-        'program': 'Eksekutif',
-        'status': 'Verifikasi Berkas',
-        'tglDaftar': '26/08/2026',
-      },
-      {
-        'kode': 'REG-2026-004',
-        'nama': 'Dina Mariana',
-        'nik': '3201984712040004',
-        'jk': 'Perempuan',
-        'alamat': 'Jl. Anggrek No. 8, Surakarta',
-        'noHp': '081377889900',
-        'program': 'Regular Sore',
-        'status': 'Belum Lengkap',
-        'tglDaftar': '25/08/2026',
-      },
-      {
-        'kode': 'REG-2026-005',
-        'nama': 'Eko Prasetyo',
-        'nik': '3201984712040005',
-        'jk': 'Laki-laki',
-        'alamat': 'Jl. Mawar No. 20, Surakarta',
-        'noHp': '089611223344',
-        'program': 'Regular Pagi',
-        'status': 'Ditolak',
-        'tglDaftar': '24/08/2026',
-      },
-    ];
-
-    final pesertaIds = <String, int>{};
-    for (final p in pesertaData) {
-      final id = await into(pesertas).insert(
-        PesertasCompanion.insert(
-          kodePeserta: p['kode']!,
-          nama: p['nama']!,
-          nik: p['nik']!,
-          jenisKelamin: Value(p['jk']!),
-          alamat: Value(p['alamat']),
-          noHp: p['noHp']!,
-          program: Value(p['program']!),
-          status: Value(p['status']!),
-          tglDaftar: p['tglDaftar']!,
-          tglLahir: const Value(null),
-        ),
-      );
-      pesertaIds[p['nama']!] = id;
-    }
-
-    // seed skrining: 1 per peserta, plus 1 extra for Ahmad Fauzi to demo flat 2x
-    final skriningSeed = [
-      {
-        'nama': 'Ahmad Fauzi',
-        'tanggal': '27/08/2026',
-        'skor': 2,
-        'kategori': 'rendah',
-        'isRedFlag': false,
-        'jawaban': [
-          true,
-          true,
-          false,
-          false,
-          false,
-          false,
-          false,
-          false,
-          false,
-          false,
-        ],
-        'rekomendasi':
-            'Berikan materi psikoedukasi mandiri pada aplikasi. Atur pengingat otomatis untuk skrining ulang pada Posyandu Jiwa bulan berikutnya.',
-      },
-      {
-        'nama': 'Ahmad Fauzi',
-        'tanggal': '28/08/2026',
-        'skor': 5,
-        'kategori': 'sedang',
-        'isRedFlag': false,
-        'jawaban': [
-          true,
-          true,
-          true,
-          true,
-          true,
-          false,
-          false,
-          false,
-          false,
-          false,
-        ],
-        'rekomendasi':
-            'Kirimkan data responden ke antrean rujukan Perawat Jiwa Puskesmas (CMHN). Jadwalkan sesi konseling awal dan kunjungan kader.',
-      },
-      {
-        'nama': 'Siti Aminah',
-        'tanggal': '27/08/2026',
-        'skor': 5,
-        'kategori': 'sedang',
-        'isRedFlag': false,
-        'jawaban': [
-          true,
-          true,
-          true,
-          true,
-          true,
-          false,
-          false,
-          false,
-          false,
-          false,
-        ],
-        'rekomendasi':
-            'Kirimkan data responden ke antrean rujukan Perawat Jiwa Puskesmas (CMHN). Jadwalkan sesi konseling awal dan kunjungan kader.',
-      },
-      {
-        'nama': 'Budi Santoso',
-        'tanggal': '26/08/2026',
-        'skor': 7,
-        'kategori': 'tinggi',
-        'isRedFlag': false,
-        'jawaban': [
-          true,
-          true,
-          true,
-          true,
-          true,
-          true,
-          true,
-          false,
-          false,
-          false,
-        ],
-        'rekomendasi':
-            'Terbitkan surat rujukan elektronik (e-Rujukan) ke Dokter Umum Puskesmas / Psikolog Klinis / RSJ untuk wawancara diagnostik lanjutan (DSM-5 / PPDGJ-III).',
-      },
-      {
-        'nama': 'Dina Mariana',
-        'tanggal': '25/08/2026',
-        'skor': 1,
-        'kategori': 'rendah',
-        'isRedFlag': false,
-        'jawaban': [
-          true,
-          false,
-          false,
-          false,
-          false,
-          false,
-          false,
-          false,
-          false,
-          false,
-        ],
-        'rekomendasi':
-            'Berikan materi psikoedukasi mandiri pada aplikasi. Atur pengingat otomatis untuk skrining ulang pada Posyandu Jiwa bulan berikutnya.',
-      },
-      {
-        'nama': 'Eko Prasetyo',
-        'tanggal': '24/08/2026',
-        'skor': null,
-        'kategori': 'kritis',
-        'isRedFlag': true,
-        'jawaban': [
-          false,
-          false,
-          false,
-          false,
-          false,
-          false,
-          false,
-          false,
-          false,
-          true,
-        ],
-        'rekomendasi':
-            'PERTAHANAN DARURAT: Responden menunjukkan ideasi bunuh diri / self-harm. Skor kuesioner diabaikan dan status KRISIS PSIKIATRI (CRITICAL_ALERT) ditetapkan. Segera rujuk ke Perawat Pembina Kesehatan Jiwa Puskesmas / layanan kesehatan terdekat untuk penanganan segera.',
-      },
-    ];
-
-    for (final s in skriningSeed) {
-      final pesertaId = pesertaIds[s['nama'] as String]!;
-      final skor = s['skor'] as int?;
-      final jawaban = s['jawaban'] as List<bool>;
-      final skriningId = await into(skriningRecords).insert(
-        SkriningRecordsCompanion.insert(
-          pesertaId: pesertaId,
-          tanggal: s['tanggal'] as String,
-          skor: Value(skor),
-          kategori: s['kategori'] as String,
-          isRedFlag: Value(s['isRedFlag'] as bool),
-          rekomendasi: s['rekomendasi'] as String,
-        ),
-      );
-      for (var i = 0; i < jawaban.length; i++) {
-        await into(skriningJawabans).insert(
-          SkriningJawabansCompanion.insert(
-            skriningId: skriningId,
-            nomor: i + 1,
-            jawaban: Value(jawaban[i]),
-          ),
-        );
-      }
-    }
   }
 
   // helpers for file path
@@ -403,12 +175,13 @@ class AppDatabase extends _$AppDatabase {
 
 LazyDatabase _openConnection() {
   return LazyDatabase(() async {
-    if (AppDatabase._dbPathOverride != null) {
-      final file = File(AppDatabase._dbPathOverride!);
-      return NativeDatabase.createInBackground(file);
-    }
-    final dir = await getApplicationSupportDirectory();
-    final file = File(p.join(dir.path, 'eposwa.db'));
+    final file = AppDatabase._dbPathOverride != null
+        ? File(AppDatabase._dbPathOverride!)
+        : File(p.join((await getApplicationSupportDirectory()).path, 'eposwa.db'));
+    await DbSafety.prepare(
+      file,
+      schemaVersion: AppDatabase.currentSchemaVersion,
+    );
     return NativeDatabase.createInBackground(file);
   });
 }
@@ -418,6 +191,20 @@ AppDatabase? _instance;
 AppDatabase getAppDatabase() {
   _instance ??= AppDatabase();
   return _instance!;
+}
+
+/// Menutup koneksi database secara bersih sebelum aplikasi diganti installer.
+///
+/// `wal_checkpoint` hanya berlaku bila mode WAL aktif; kalau tidak, diabaikan
+/// (pola sama seperti export_service.dart).
+Future<void> closeAppDatabaseForUpdate() async {
+  final db = _instance;
+  if (db == null) return;
+  try {
+    await db.customStatement('PRAGMA wal_checkpoint(TRUNCATE)');
+  } catch (_) {}
+  await db.close();
+  _instance = null;
 }
 
 void setAppDatabaseForTesting(AppDatabase db) {
