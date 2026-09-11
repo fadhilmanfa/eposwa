@@ -6,11 +6,14 @@ import 'package:window_manager/window_manager.dart';
 import 'package:eposwa/core/theme/app_theme.dart';
 import 'package:eposwa/core/widgets/app_splash_screen.dart';
 import 'package:eposwa/core/database/app_database.dart';
+import 'package:eposwa/core/services/app_info_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // init database (creates file + seed if needed)
   getAppDatabase();
+  // versi aplikasi (dari pubspec.yaml via build info)
+  await AppInfoService.load();
 
   // Aktifkan frameless window hanya di Desktop (Windows/Linux/macOS).
   // Di Web & Mobile tetap pakai title bar sistem.
