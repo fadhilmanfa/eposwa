@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:eposwa/core/database/app_database.dart';
+import 'package:eposwa/core/services/xlsx_writer.dart';
 
 class ExportService {
   static String _escapeSql(dynamic value) {
@@ -97,6 +98,154 @@ class ExportService {
 
     final file = File(savePath);
     await file.writeAsString(buffer.toString());
+    return file.path;
+  }
+
+  /// Membangun 3 sheet laporan (Peserta, Skrining, Jawaban Skrining).
+  static Future<List<XlsxSheet>> _buildReportSheets() async {
+    final db = getAppDatabase();
+
+    final peserta = await db.customSelect(
+      'SELECT id, kode_peserta, nama, nik, jenis_kelamin, tgl_lahir, alamat, '
+      'no_hp, program, pernah_konsultasi, pernah_dapat_obat, status, tgl_daftar '
+      'FROM pesertas ORDER BY id',
+    ).get();
+
+    final skrining = await db.customSelect(
+      'SELECT s.id, s.peserta_id, p.kode_peserta, p.nama AS nama_peserta, '
+      's.tanggal, s.skor, s.kategori, s.is_red_flag, s.rekomendasi '
+      'FROM skrining_records s '
+      'JOIN pesertas p ON p.id = s.peserta_id ORDER BY s.id',
+    ).get();
+
+    final jawaban = await db.customSelect(
+      'SELECT j.skrining_id, p.nama AS nama_peserta, s.tanggal, j.nomor, j.jawaban '
+      'FROM skrining_jawabans j '
+      'JOIN skrining_records s ON s.id = j.skrining_id '
+      'JOIN pesertas p ON p.id = s.peserta_id '
+      'ORDER BY j.skrining_id, j.nomor',
+    ).get();
+
+    return [
+      XlsxSheet('Peserta', [
+        const [
+          'ID',
+          'Kode Peserta',
+          'Nama',
+          'NIK',
+          'Jenis Kelamin',
+          'Tanggal Lahir',
+          'Alamat',
+          'No. HP',
+          'Program',
+          'Pernah Konsultasi',
+          'Pernah Dapat Obat',
+          'Status',
+          'Tanggal Daftar',
+        ],
+        for (final row in peserta)
+          [
+            row.data['id'],
+            _text(row.data['kode_peserta']),
+            _text(row.data['nama']),
+            _text(row.data['nik']),
+            _text(row.data['jenis_kelamin']),
+            _text(row.data['tgl_lahir']),
+            _text(row.data['alamat']),
+            _text(row.data['no_hp']),
+            _text(row.data['program']),
+            _yesNo(row.data['pernah_konsultasi']),
+            _yesNo(row.data['pernah_dapat_obat']),
+            _text(row.data['status']),
+            _text(row.data['tgl_daftar']),
+          ],
+      ]),
+      XlsxSheet('Skrining', [
+        const [
+          'ID Skrining',
+          'ID Peserta',
+          'Kode Peserta',
+          'Nama Peserta',
+          'Tanggal',
+          'Skor',
+          'Kategori',
+          'Red Flag',
+          'Rekomendasi',
+        ],
+        for (final row in skrining)
+          [
+            row.data['id'],
+            row.data['peserta_id'],
+            _text(row.data['kode_peserta']),
+            _text(row.data['nama_peserta']),
+            _text(row.data['tanggal']),
+            _text(row.data['skor']),
+            _text(row.data['kategori']),
+            _yesNo(row.data['is_red_flag']),
+            _text(row.data['rekomendasi']),
+          ],
+      ]),
+      XlsxSheet('Jawaban Skrining', [
+        const [
+          'ID Skrining',
+          'Nama Peserta',
+          'Tanggal',
+          'Nomor',
+          'Jawaban',
+        ],
+        for (final row in jawaban)
+          [
+            row.data['skrining_id'],
+            _text(row.data['nama_peserta']),
+            _text(row.data['tanggal']),
+            row.data['nomor'],
+            _yesNo(row.data['jawaban']),
+          ],
+      ]),
+    ];
+  }
+
+  static String _text(Object? value) => value == null ? '-' : value.toString();
+
+  static String _yesNo(Object? value) {
+    if (value == null) return '-';
+    return (value == 1 || value == true) ? 'Ya' : 'Tidak';
+  }
+
+  /// Bytes file .xlsx (dipisah dari dialog simpan agar mudah diuji).
+  static Future<List<int>> buildExcelBytes() async {
+    return XlsxWriter.build(await _buildReportSheets());
+  }
+
+  /// true bila sudah ada data peserta/skrining/jawaban untuk dilaporkan.
+  static Future<bool> hasReportData() async {
+    final row = await getAppDatabase()
+        .customSelect(
+          'SELECT (SELECT COUNT(*) FROM pesertas) + '
+          '(SELECT COUNT(*) FROM skrining_records) + '
+          '(SELECT COUNT(*) FROM skrining_jawabans) AS total',
+        )
+        .getSingle();
+    return (row.data['total'] as int? ?? 0) > 0;
+  }
+
+  /// Simpan laporan Excel (.xlsx) lewat dialog Save.
+  static Future<String?> exportExcel() async {
+    final now = DateTime.now();
+    final defaultName =
+        'eposwa_data_${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}_${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}.xlsx';
+
+    final savePath = await FilePicker.platform.saveFile(
+      dialogTitle: 'Simpan Data Excel',
+      fileName: defaultName,
+      type: FileType.custom,
+      allowedExtensions: ['xlsx'],
+    );
+    if (savePath == null) return null;
+
+    final bytes = await buildExcelBytes();
+    final file = File(savePath);
+    await file.writeAsBytes(bytes, flush: true);
     return file.path;
   }
 
