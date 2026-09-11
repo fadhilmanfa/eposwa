@@ -9,9 +9,10 @@ import 'package:eposwa/features/database_peserta/presentation/pages/database_pag
 import 'package:eposwa/features/beranda/presentation/pages/beranda_page.dart';
 import 'package:eposwa/core/services/session_service.dart';
 import 'package:eposwa/core/services/export_service.dart';
+import 'package:eposwa/core/widgets/export_option_dialog.dart';
 import 'package:eposwa/core/services/import_service.dart';
-import 'package:eposwa/features/auth/presentation/pages/admin_management_page.dart';
-import 'package:eposwa/features/main_layout/presentation/widgets/share_dialogs.dart';
+import 'package:eposwa/features/settings/presentation/pages/settings_page.dart';
+import 'package:eposwa/features/main_layout/presentation/widgets/update_button.dart';
 
 class MainLayoutPage extends StatefulWidget {
   final int initialIndex;
@@ -46,8 +47,10 @@ class _MainLayoutPageState extends State<MainLayoutPage> {
     setState(() {
       _selectedIndex = index;
     });
-    // Segarkan data Database setiap kali tab Database dibuka, karena skor/
-    // kategori risiko bisa berubah dari tab Skrining & Penilaian / form lain.
+    // Segarkan data setiap tab dibuka, karena perubahan di tab lain ikut
+    // memengaruhinya (skor/kategori dari form skrining, hapus peserta yang
+    // lewat ON DELETE CASCADE menghapus skriningnya).
+    if (index == 2) _testKey.currentState?.refresh();
     if (index == 3) _databaseKey.currentState?.refresh();
   }
 
@@ -90,6 +93,52 @@ class _MainLayoutPageState extends State<MainLayoutPage> {
         ],
       ),
     );
+  }
+
+  Future<void> _handleExport() async {
+    final format = await showExportOptionDialog(context);
+    if (!mounted || format == null) return;
+    if (format == ExportFormat.sql) {
+      await _handleExportSql();
+    } else {
+      await _handleExportExcel();
+    }
+  }
+
+  Future<void> _handleExportExcel() async {
+    try {
+      if (!await ExportService.hasReportData()) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Belum ada data peserta atau skrining untuk di-export'),
+          ),
+        );
+        return;
+      }
+      final path = await ExportService.exportExcel();
+      if (!mounted) return;
+      if (path == null) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Export dibatalkan')));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Data Excel berhasil di-export: $path'),
+            backgroundColor: AppColors.primary,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal export: $e'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
   }
 
   Future<void> _handleExportSql() async {
@@ -142,143 +191,6 @@ class _MainLayoutPageState extends State<MainLayoutPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Gagal import: $e'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-    }
-  }
-
-  Future<void> _handleInstanSql() async {
-    final result = await showDialog<ShareResult>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const ShareDialog(),
-    );
-    if (!mounted) return;
-    if (result == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Berbagi instan dibatalkan')));
-      return;
-    }
-    if (result.sent) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Data berhasil dikirim ke ${result.peerName}'),
-          backgroundColor: AppColors.primary,
-        ),
-      );
-      return;
-    }
-    final sql = result.sql;
-    if (sql == null) return;
-
-    // 1) Preview isi tabel yang dikirim
-    final action = await showDialog<(PreviewAction, String?)>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => PreviewDialog(sql: sql, senderName: result.peerName),
-    );
-    if (!mounted) return;
-    if (action == null || action.$1 == PreviewAction.cancel) return;
-    if (action.$1 == PreviewAction.saved) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Data tersimpan: ${action.$2}'),
-          backgroundColor: AppColors.primary,
-        ),
-      );
-      return;
-    }
-
-    // 2) Terapkan → cek dulu NIK yang sudah ada di database lokal
-    try {
-      final preview = await ImportService.previewSqlFromContent(sql);
-      if (!mounted) return;
-      if (preview != null && preview.duplicateCount > 0) {
-        final niks = preview.duplicateNiks;
-        final shown = niks.take(8).join(', ');
-        final more =
-            niks.length > 8 ? '\n... dan ${niks.length - 8} NIK lainnya' : '';
-        final lanjutkan = await showDialog<bool>(
-          context: context,
-          barrierDismissible: false,
-          builder: (ctx) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
-            title: const Row(
-              children: [
-                Icon(Icons.warning_amber_rounded, color: Color(0xFFF59E0B)),
-                SizedBox(width: 10),
-                Text(
-                  'Data Sudah Ada',
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
-              ],
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Ditemukan NIK yang sudah ada di database ini:',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 10),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.primarySoft,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppColors.borderLight),
-                  ),
-                  child: Text(
-                    'Data sudah ada: NIK $shown$more',
-                    style: const TextStyle(fontSize: 13, height: 1.5),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  'Lanjutkan akan menambahkan ${preview.newCount} peserta baru sebagai baris baru dan melewati ${preview.duplicateCount} data yang NIK-nya sudah ada.',
-                  style: TextStyle(fontSize: 12.5, color: AppColors.textMuted),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(false),
-                child: const Text('Batal'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.of(ctx).pop(true),
-                child: const Text('Lanjutkan'),
-              ),
-            ],
-          ),
-        );
-        if (lanjutkan != true || !mounted) return;
-      }
-
-      final importResult = await ImportService.importSqlFromContent(
-        sql,
-        ImportStrategy.skip,
-      );
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Terapkan selesai: ${importResult.imported} peserta baru ditambahkan, ${importResult.skipped} duplikat dilewati',
-          ),
-          backgroundColor: AppColors.primary,
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Gagal terapkan: $e'),
           backgroundColor: Colors.redAccent,
         ),
       );
@@ -393,12 +305,20 @@ class _MainLayoutPageState extends State<MainLayoutPage> {
           // Simple Profile Avatar
           Row(
             children: [
-              _UpdateButton(),
+              const UpdateButton(),
               const SizedBox(width: 10),
               _ProfileMenu(
                 onImport: _handleImportSql,
-                onExport: _handleExportSql,
-                onInstan: _handleInstanSql,
+                onExport: _handleExport,
+                onInstan: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Text('Fitur "Instan" segera hadir.'),
+                      behavior: SnackBarBehavior.floating,
+                      backgroundColor: AppColors.primary,
+                    ),
+                  );
+                },
                 onSambungkanPc: () {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -409,9 +329,7 @@ class _MainLayoutPageState extends State<MainLayoutPage> {
                   );
                 },
                 onSettings: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const AdminManagementPage(),
-                  ),
+                  MaterialPageRoute(builder: (_) => const SettingsPage()),
                 ),
                 onLogout: _handleLogout,
               ),
@@ -419,146 +337,6 @@ class _MainLayoutPageState extends State<MainLayoutPage> {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _UpdateButton extends StatefulWidget {
-  const _UpdateButton();
-
-  @override
-  State<_UpdateButton> createState() => _UpdateButtonState();
-}
-
-class _UpdateButtonState extends State<_UpdateButton> {
-  final MenuController _controller = MenuController();
-
-  static const _menuStyle = MenuStyle(
-    backgroundColor: WidgetStatePropertyAll(Colors.white),
-    surfaceTintColor: WidgetStatePropertyAll(Colors.transparent),
-    elevation: WidgetStatePropertyAll(8),
-    shadowColor: WidgetStatePropertyAll(Color(0x1E000000)),
-    shape: WidgetStatePropertyAll(
-      RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(12)),
-        side: BorderSide(color: AppColors.borderLight),
-      ),
-    ),
-    padding: WidgetStatePropertyAll(EdgeInsets.zero),
-  );
-
-  @override
-  Widget build(BuildContext context) {
-    return MenuAnchor(
-      controller: _controller,
-      style: _menuStyle,
-      alignmentOffset: const Offset(0, 8),
-      menuChildren: [
-        Container(
-          width: 280,
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFEFF6FF),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.arrow_upward_rounded,
-                  color: AppColors.primary,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Versi Baru Tersedia',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14.5,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textDark,
-                  fontFamily: 'Inter',
-                ),
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                'Versi 2.0.0',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12.5,
-                  color: AppColors.textMuted,
-                  fontFamily: 'Inter',
-                ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: () => _controller.close(),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 11),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  child: const Text(
-                    'Update Sekarang',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-      builder: (context, controller, child) {
-        final isOpen = controller.isOpen;
-        return InkWell(
-          borderRadius: BorderRadius.circular(10),
-          onTap: () => isOpen ? controller.close() : controller.open(),
-          hoverColor: AppColors.primary.withValues(alpha: 0.08),
-          child: Container(
-            height: 38,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: isOpen
-                  ? AppColors.primary.withValues(alpha: 0.08)
-                  : Colors.white,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: isOpen ? AppColors.primary : AppColors.borderMedium,
-                width: 1,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.arrow_upward_rounded,
-                  size: 17,
-                  color: isOpen ? AppColors.primary : AppColors.primary,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  'Update',
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
-                    color: isOpen ? AppColors.primary : AppColors.primary,
-                    fontFamily: 'Inter',
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
     );
   }
 }
