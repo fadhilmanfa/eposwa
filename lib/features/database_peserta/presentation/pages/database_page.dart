@@ -170,7 +170,7 @@ class DatabasePageState extends State<DatabasePage> {
     }).toList();
     final sorted = _applySort(filtered);
 
-    return SingleChildScrollView(
+    return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -340,36 +340,24 @@ class DatabasePageState extends State<DatabasePage> {
 
           const SizedBox(height: 20),
 
-          // Data Table Card - Excel-like
-          Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.borderLight),
-            ),
-            child: filtered.isEmpty
-                ? Padding(
-                    padding: const EdgeInsets.all(40),
-                    child: Column(
-                      children: const [
-                        Icon(Icons.search_off_rounded,
-                            size: 48, color: AppColors.textMuted),
-                        SizedBox(height: 12),
-                        Text(
-                          'Tidak ada data peserta yang sesuai',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textMuted,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : Column(
-                    children: [
-                      ExcelTable(
+          // Kartu tabel mengisi sisa tinggi area konten; hanya area baris yang
+          // scroll sehingga header & footer tetap di tempatnya.
+          Expanded(
+            child: Container(
+              width: double.infinity,
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.borderLight),
+              ),
+              child: filtered.isEmpty
+                  ? _buildEmptyState()
+                  : Column(
+                      children: [
+                        Expanded(
+                          child: SingleChildScrollView(
+                            child: ExcelTable(
                         columns: const [
                           ExcelColumn(
                               label: 'Nama Peserta', flex: 3, minWidth: 150),
@@ -447,6 +435,8 @@ class DatabasePageState extends State<DatabasePage> {
                           ];
                         }).toList(),
                       ),
+                            ),
+                          ),
                       const Divider(height: 1),
 
                       // Table Footer
@@ -508,6 +498,28 @@ class DatabasePageState extends State<DatabasePage> {
                       ),
                     ],
                   ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: const [
+          Icon(Icons.search_off_rounded,
+              size: 48, color: AppColors.textMuted),
+          SizedBox(height: 12),
+          Text(
+            'Tidak ada data peserta yang sesuai',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textMuted,
+            ),
           ),
         ],
       ),
