@@ -1,0 +1,67 @@
+name: Release Installer
+
+# Menerbitkan installer ePOSWA ke GitHub Releases saat tag versi didorong,
+# mis. `git tag v1.0.1 && git push origin v1.0.1`. Tag harus sama dengan
+# `version:` di pubspec.yaml supaya aplikasi terpasang mengenali versi baru.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  installer:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validasi tag dengan version pubspec
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $match = Select-String -Path pubspec.yaml -Pattern '^version:\s*"?([0-9]+\.[0-9]+\.[0-9]+)' |
+            Select-Object -First 1
+          if (-not $match) {
+            Write-Error 'Baris version: tidak ditemukan di pubspec.yaml.'
+            exit 1
+          }
+          $version = $match.Matches[0].Groups[1].Value
+          $tag = '${{ github.ref_name }}' -replace '^v', ''
+          Write-Host "tag=$tag pubspec=$version"
+          if ($tag -ne $version) {
+            Write-Error "Tag $tag tidak sama dengan version: $version di pubspec.yaml."
+            exit 1
+          }
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          # Disamakan dengan versi pengembangan lokal agar build CI identik.
+          flutter-version: 3.47.2
+          channel: stable
+          cache: true
+
+      - name: Ambil dependency
+        run: flutter pub get
+
+      # Membangun Flutter release, merender eposwa.iss, lalu mengompilasi
+      # installer memakai ISCC bawaan paket inno_build (tanpa install apa pun).
+      - name: Build installer
+        run: dart run tool/build_installer.dart
+
+      - name: Simpan installer sebagai artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer
+          path: build/windows/x64/installer/ePOSWA-*-Setup.exe
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/windows/x64/installer/ePOSWA-*-Setup.exe
+          generate_release_notes: true
