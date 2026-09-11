@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:eposwa/core/constants/app_colors.dart';
+import 'package:eposwa/core/widgets/sidebar_tile.dart';
 
 class SidebarItemData {
   final int index;
@@ -108,8 +109,11 @@ class _AppSidebarState extends State<AppSidebar> {
 
                     return SizedBox(
                       height: _tileHeight,
-                      child: _SidebarTile(
-                        item: item,
+                      child: SidebarTile(
+                        icon: item.icon,
+                        activeIcon: item.activeIcon,
+                        title: item.title,
+                        badge: item.badge,
                         isSelected: isSelected,
                         isCollapsed: isCollapsed,
                         onTap: () => widget.onItemSelected(item.index),
@@ -222,123 +226,6 @@ class _AppSidebarState extends State<AppSidebar> {
                   ],
                 ),
               ),
-      ),
-    );
-  }
-}
-
-class _SidebarTile extends StatefulWidget {
-  final SidebarItemData item;
-  final bool isSelected;
-  final bool isCollapsed;
-  final VoidCallback onTap;
-
-  const _SidebarTile({
-    required this.item,
-    required this.isSelected,
-    required this.isCollapsed,
-    required this.onTap,
-  });
-
-  @override
-  State<_SidebarTile> createState() => _SidebarTileState();
-}
-
-class _SidebarTileState extends State<_SidebarTile> {
-  bool _isHovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final activeColor = AppColors.heroButton;
-    final isSelected = widget.isSelected;
-
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: Tooltip(
-        message: widget.isCollapsed ? widget.item.title : '',
-        child: Material(
-          color: isSelected
-              ? activeColor.withValues(alpha: 0.10)
-              : (_isHovered ? AppColors.sectionCardBg : Colors.transparent),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          clipBehavior: Clip.antiAlias,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: widget.onTap,
-            child: Padding(
-              padding: EdgeInsets.only(
-                left: widget.isCollapsed ? 0 : 24,
-                right: widget.isCollapsed ? 0 : 12,
-                top: 11,
-                bottom: 11,
-              ),
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: widget.isCollapsed
-                    ? Alignment.center
-                    : Alignment.centerLeft,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      isSelected ? widget.item.activeIcon : widget.item.icon,
-                      color: isSelected
-                          ? activeColor
-                          : (_isHovered
-                              ? AppColors.textDark
-                              : const Color(0xFF64748B)),
-                      size: 20,
-                    ),
-                    if (!widget.isCollapsed) ...[
-                      const SizedBox(width: 10),
-                      Text(
-                        widget.item.title,
-                        style: TextStyle(
-                          color: isSelected
-                              ? activeColor
-                              : (_isHovered
-                                  ? AppColors.textDark
-                                  : const Color(0xFF475569)),
-                          fontSize: 13.5,
-                          fontWeight: isSelected
-                              ? FontWeight.w700
-                              : FontWeight.w500,
-                          fontFamily: 'Inter',
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (widget.item.badge != null)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 7, vertical: 2),
-                          decoration: BoxDecoration(
-                            color:
-                                AppColors.heroButton.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color:
-                                  AppColors.heroButton.withValues(alpha: 0.3),
-                            ),
-                          ),
-                          child: Text(
-                            widget.item.badge!,
-                            style: const TextStyle(
-                              color: AppColors.heroButton,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }

@@ -30,6 +30,17 @@ class AuthRepository {
     )..orderBy([(t) => OrderingTerm.asc(t.username)])).get();
   }
 
+  /// Cek apakah [username] sudah dipakai (case-insensitive, mengikuti kolom
+  /// `username` yang UNIQUE COLLATE NOCASE).
+  Future<bool> usernameExists(String username) async {
+    final q = username.trim().toLowerCase();
+    if (q.isEmpty) return false;
+    final row = await (db.select(
+      db.admins,
+    )..where((t) => t.username.lower().equals(q))).getSingleOrNull();
+    return row != null;
+  }
+
   Future<int> createAdmin({
     required String username,
     required String password,
@@ -82,6 +93,15 @@ class AuthRepository {
 
   Future<bool> setActive(int id, bool active) =>
       updateAdmin(id, isActive: active);
+
+  /// Hapus admin. Riwayat yang dibuat admin ini tetap aman karena kolom
+  /// `created_by` memakai `ON DELETE SET NULL`.
+  Future<bool> deleteAdmin(int id) async {
+    final count = await (db.delete(
+      db.admins,
+    )..where((t) => t.id.equals(id))).go();
+    return count > 0;
+  }
 
   Future<Admin?> getById(int id) {
     return (db.select(
