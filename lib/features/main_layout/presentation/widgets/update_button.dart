@@ -64,6 +64,18 @@ class _UpdateButtonState extends State<UpdateButton> {
     setState(() => _apply(result));
   }
 
+  Future<void> _openReleases() async {
+    _controller.close();
+    try {
+      await UpdateService.openReleasesPage();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$e')),
+      );
+    }
+  }
+
   Future<void> _startUpdate() async {
     final result = _result;
     if (result == null || !result.canInstall) return;
@@ -226,17 +238,22 @@ class _UpdateButtonState extends State<UpdateButton> {
   }
 
   Widget _buildAction() {
-    final style = FilledButton.styleFrom(
+    final primaryStyle = FilledButton.styleFrom(
       backgroundColor: AppColors.primary,
       foregroundColor: Colors.white,
       padding: const EdgeInsets.symmetric(vertical: 11),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    );
+    final outlineStyle = OutlinedButton.styleFrom(
+      padding: const EdgeInsets.symmetric(vertical: 11),
+      side: const BorderSide(color: AppColors.borderMedium),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
     );
 
     if (_status == _Status.checking) {
       return FilledButton(
         onPressed: null,
-        style: style,
+        style: primaryStyle,
         child: const SizedBox(
           width: 16,
           height: 16,
@@ -248,9 +265,41 @@ class _UpdateButtonState extends State<UpdateButton> {
       );
     }
 
+    if (_status == _Status.error) {
+      // Fallback langsung ke GitHub Releases — berguna saat
+      // CERTIFICATE_VERIFY_FAILED / proxy korporat memblokir API.
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          FilledButton.icon(
+            onPressed: _openReleases,
+            style: primaryStyle,
+            icon: const Icon(Icons.open_in_new_rounded, size: 16),
+            label: const Text(
+              'Buka di GitHub',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+            ),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton(
+            onPressed: _check,
+            style: outlineStyle,
+            child: const Text(
+              'Coba Lagi',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+                color: AppColors.textDark,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
     return FilledButton(
       onPressed: _status == _Status.available ? _startUpdate : _check,
-      style: style,
+      style: primaryStyle,
       child: Text(
         switch (_status) {
           _Status.available => 'Update Sekarang',

@@ -88,6 +88,17 @@ class _UpdateProgressDialogState extends State<_UpdateProgressDialog> {
     }
   }
 
+  Future<void> _openReleases() async {
+    try {
+      await UpdateService.openReleasesPage();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$e')),
+      );
+    }
+  }
+
   Future<void> _install() async {
     final file = _file;
     if (file == null) return;
@@ -253,6 +264,85 @@ class _UpdateProgressDialogState extends State<_UpdateProgressDialog> {
   }
 
   Widget _buildFooter() {
+    // Error: fallback langsung ke GitHub Releases (row atas: Coba Lagi + Buka di GitHub,
+    // baris bawah: Tutup). Berguna saat CERTIFICATE_VERIFY_FAILED / proxy memblokir unduhan.
+    if (_phase == _Phase.error) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: const BoxDecoration(
+          color: AppColors.sectionLight,
+          border: Border(top: BorderSide(color: AppColors.borderLight)),
+          borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _installing ? null : _startDownload,
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      side: const BorderSide(color: AppColors.borderMedium),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: const Text(
+                      'Coba Lagi',
+                      style: TextStyle(
+                        color: AppColors.textDark,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: _installing ? null : _openReleases,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                    label: const Text(
+                      'Buka di GitHub',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                onPressed: _installing
+                    ? null
+                    : () {
+                        _cancelled = true;
+                        Navigator.of(context).pop();
+                      },
+                child: const Text(
+                  'Tutup',
+                  style: TextStyle(
+                    color: AppColors.textMuted,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: const BoxDecoration(
