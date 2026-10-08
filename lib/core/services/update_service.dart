@@ -67,73 +67,124 @@ class UpdateService {
   UpdateService._();
 
   static const String repo = 'fadhilmanfa/eposwa';
-
   static const String _userAgent = 'ePOSWA-Updater';
-
   static const Duration _timeout = Duration(seconds: 10);
+
+  static String get releasesUrl => 'https://github.com/$repo/releases';
+  static String get releasesLatestUrl => 'https://github.com/$repo/releases/latest';
+
+  /// Membuka halaman Releases di browser default (fallback saat cert/proxy bermasalah).
+  static Future<void> openReleasesPage() async {
+    final url = releasesLatestUrl;
+    try {
+      if (Platform.isWindows) {
+        await Process.start('cmd', ['/c', 'start', '', url], runInShell: true);
+      } else if (Platform.isMacOS) {
+        await Process.start('open', [url]);
+      } else if (Platform.isLinux) {
+        await Process.start('xdg-open', [url]);
+      } else {
+        throw const UpdateException('Tidak dapat membuka browser di platform ini.');
+      }
+    } catch (e) {
+      if (e is UpdateException) rethrow;
+      throw UpdateException('Gagal membuka browser: $e');
+    }
+  }
 
   /// Hasil pemeriksaan terakhir; dipakai ulang saat tombol Update diklik.
   static UpdateCheckResult? lastResult;
 
-  /// Mengambil rilis terbaru dan membandingkannya dengan versi terpasang.
-  static Future<UpdateCheckResult> check() async {
-    final current = AppInfoService.version;
-    final client = HttpClient()..connectionTimeout = _timeout;
-    try {
-      final request = await client.getUrl(
-        Uri.parse('https://api.github.com/repos/$repo/releases/latest'),
+  static bool _isCertError(Object error) {
+    if (error is HandshakeException) return true;
+    final s = error.toString();
+    return s.contains('CERTIFICATE_VERIFY_FAILED') ||
+        s.contains('HandshakeException') ||
+        s.contains('Handshake error');
+  }
+
+  static String _friendlyCertMessage() =>
+      'Koneksi aman gagal memverifikasi sertifikat. '
+      'Periksa tanggal & waktu Windows, pastikan Windows Update aktif, '
+      'atau coba lagi di jaringan tanpa proxy/VPN. '
+      'Jika tetap gagal, gunakan tombol Buka di GitHub untuk unduh manual.';
+
+  static String _sanitizeError(Object error) {
+    var msg = error.toString().replaceAll(RegExp(r'\s*\(.*handshake\.cc:\d+\)'), '').trim();
+    msg = msg.replaceAll(RegExp(r'^HandshakeException:[^:]*:\s*'), '');
+    msg = msg.replaceAll('OS Error: ', '');
+    if (msg.length > 220) msg = '${msg.substring(0, 220)}…';
+    return msg;
+  }
+
+  static HttpClient _newClient({bool insecure = false}) {
+    final c = HttpClient()..connectionTimeout = _timeout;
+    if (insecure) c.badCertificateCallback = (cert, host, port) => true;
+    return c;
+  }
+
+  static Future<UpdateCheckResult> _checkWith(HttpClient client, String current) async {
+    final request = await client.getUrl(
+      Uri.parse('https://api.github.com/repos/$repo/releases/latest'),
+    );
+    request.headers
+      ..set(HttpHeaders.userAgentHeader, _userAgent)
+      ..set(HttpHeaders.acceptHeader, 'application/vnd.github+json');
+    final response = await request.close().timeout(_timeout);
+    if (response.statusCode == HttpStatus.notFound) {
+      return UpdateCheckResult(hasUpdate: false, currentVersion: current);
+    }
+    if (response.statusCode != HttpStatus.ok) {
+      return UpdateCheckResult(
+        hasUpdate: false,
+        currentVersion: current,
+        error: 'Server pembaruan menolak permintaan (${response.statusCode}).',
       );
-      request.headers
-        ..set(HttpHeaders.userAgentHeader, _userAgent)
-        ..set(HttpHeaders.acceptHeader, 'application/vnd.github+json');
-
-      final response = await request.close().timeout(_timeout);
-      if (response.statusCode == HttpStatus.notFound) {
-        return lastResult = UpdateCheckResult(
-          hasUpdate: false,
-          currentVersion: current,
-        );
-      }
-      if (response.statusCode != HttpStatus.ok) {
-        return lastResult = UpdateCheckResult(
-          hasUpdate: false,
-          currentVersion: current,
-          error:
-              'Server pembaruan menolak permintaan (${response.statusCode}).',
-        );
-      }
-
-      final body = await response.transform(utf8.decoder).join();
-      final release = jsonDecode(body) as Map<String, dynamic>;
-      final tag = (release['tag_name'] as String?)?.trim() ?? '';
-      if (tag.isEmpty) {
-        return lastResult = UpdateCheckResult(
-          hasUpdate: false,
-          currentVersion: current,
-          error: 'Rilis terbaru tidak menyertakan nomor versi.',
-        );
-      }
-
-      final latest = tag.startsWith('v') ? tag.substring(1) : tag;
-      final asset = _pickAsset(release['assets']);
-      if (asset == null) {
-        return lastResult = UpdateCheckResult(
-          hasUpdate: false,
-          currentVersion: current,
-          latestVersion: latest,
-          error: 'Rilis $tag tidak menyertakan berkas installer.',
-        );
-      }
-
-      return lastResult = UpdateCheckResult(
-        hasUpdate: compareVersions(latest, current) > 0,
+    }
+    final body = await response.transform(utf8.decoder).join();
+    final release = jsonDecode(body) as Map<String, dynamic>;
+    final tag = (release['tag_name'] as String?)?.trim() ?? '';
+    if (tag.isEmpty) {
+      return UpdateCheckResult(
+        hasUpdate: false,
+        currentVersion: current,
+        error: 'Rilis terbaru tidak menyertakan nomor versi.',
+      );
+    }
+    final latest = tag.startsWith('v') ? tag.substring(1) : tag;
+    final asset = _pickAsset(release['assets']);
+    if (asset == null) {
+      return UpdateCheckResult(
+        hasUpdate: false,
         currentVersion: current,
         latestVersion: latest,
-        notes: (release['body'] as String?)?.trim(),
-        downloadUrl: asset['browser_download_url'] as String?,
-        assetName: asset['name'] as String?,
-        assetSize: (asset['size'] as num?)?.toInt() ?? 0,
+        error: 'Rilis $tag tidak menyertakan berkas installer.',
       );
+    }
+    return UpdateCheckResult(
+      hasUpdate: compareVersions(latest, current) > 0,
+      currentVersion: current,
+      latestVersion: latest,
+      notes: (release['body'] as String?)?.trim(),
+      downloadUrl: asset['browser_download_url'] as String?,
+      assetName: asset['name'] as String?,
+      assetSize: (asset['size'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  /// Mengambil rilis terbaru dan membandingkannya dengan versi terpasang.
+  ///
+  /// Menangani `CERTIFICATE_VERIFY_FAILED` (HandshakeException dari BoringSSL
+  /// di Windows) secara khusus: dicoba sekali lagi dengan
+  /// `badCertificateCallback` agar update tetap bisa jalan di mesin dengan
+  /// root-CA bermasalah / proxy korporat. Bila tetap gagal, pesan ramah
+  /// tanpa jejak `handshake.cc` ditampilkan.
+  static Future<UpdateCheckResult> check() async {
+    final current = AppInfoService.version;
+    final secureClient = _newClient(insecure: false);
+    try {
+      final result = await _checkWith(secureClient, current);
+      return lastResult = result;
     } on SocketException {
       return lastResult = UpdateCheckResult(
         hasUpdate: false,
@@ -147,13 +198,29 @@ class UpdateService {
         error: 'Koneksi ke server pembaruan habis waktu.',
       );
     } catch (error) {
+      if (_isCertError(error)) {
+        final insecureClient = _newClient(insecure: true);
+        try {
+          final retry = await _checkWith(insecureClient, current);
+          return lastResult = retry;
+        } catch (_) {
+          // fallback ke pesan ramah di bawah
+        } finally {
+          insecureClient.close(force: true);
+        }
+        return lastResult = UpdateCheckResult(
+          hasUpdate: false,
+          currentVersion: current,
+          error: _friendlyCertMessage(),
+        );
+      }
       return lastResult = UpdateCheckResult(
         hasUpdate: false,
         currentVersion: current,
-        error: 'Gagal memeriksa pembaruan: $error',
+        error: 'Gagal memeriksa pembaruan: ${_sanitizeError(error)}',
       );
     } finally {
-      client.close(force: true);
+      secureClient.close(force: true);
     }
   }
 
@@ -209,12 +276,58 @@ class UpdateService {
     return left.build.compareTo(right.build);
   }
 
+  static Future<File> _downloadWith(
+    HttpClient client,
+    String url,
+    File partial,
+    int expected, {
+    required void Function(int received, int total) onProgress,
+    bool Function()? isCancelled,
+  }) async {
+    final request = await client.getUrl(Uri.parse(url));
+    request.headers
+      ..set(HttpHeaders.userAgentHeader, _userAgent)
+      ..set(HttpHeaders.acceptHeader, 'application/octet-stream');
+    request.followRedirects = true;
+    final response = await request.close().timeout(_timeout);
+    if (response.statusCode != HttpStatus.ok) {
+      throw UpdateException('Gagal mengunduh installer (${response.statusCode}).');
+    }
+    final total = response.contentLength > 0 ? response.contentLength : expected;
+    final sink = partial.openWrite();
+    var received = 0;
+    var lastEmit = 0;
+    final watch = Stopwatch()..start();
+    try {
+      await for (final chunk in response) {
+        if (isCancelled?.call() ?? false) throw const UpdateCancelledException();
+        sink.add(chunk);
+        received += chunk.length;
+        if (watch.elapsedMilliseconds - lastEmit >= 200 ||
+            (total > 0 && received >= total)) {
+          lastEmit = watch.elapsedMilliseconds;
+          onProgress(received, total);
+        }
+      }
+    } finally {
+      watch.stop();
+      await sink.close();
+    }
+    if (isCancelled?.call() ?? false) throw const UpdateCancelledException();
+    final expectedSize = expected > 0 ? expected : total;
+    if (expectedSize > 0 && received != expectedSize) {
+      throw const UpdateException('Unduhan tidak lengkap. Silakan coba lagi.');
+    }
+    return partial;
+  }
+
   /// Mengunduh installer [result] ke folder sementara aplikasi.
   ///
   /// [onProgress] dipanggil paling sering ~5×/detik. Bila [isCancelled]
   /// mengembalikan true, unduhan dihentikan dan [UpdateCancelledException]
   /// dilempar. Ukuran berkas dicocokkan dengan metadata GitHub sebagai
   /// pengaman terhadap unduhan yang terputus.
+  /// Menangani CERTIFICATE_VERIFY_FAILED dengan retry insecure.
   static Future<File> download(
     UpdateCheckResult result, {
     required void Function(int received, int total) onProgress,
@@ -225,81 +338,59 @@ class UpdateService {
     if (url == null || name == null) {
       throw const UpdateException('Rilis tidak menyertakan berkas installer.');
     }
-
     final dir = Directory(p.join(Directory.systemTemp.path, 'eposwa-update'))
       ..createSync(recursive: true);
     _cleanOldInstallers(dir, keep: name);
-
     final target = File(p.join(dir.path, name));
     final expected = result.assetSize;
-    if (target.existsSync() &&
-        (expected == 0 || target.lengthSync() == expected)) {
+    if (target.existsSync() && (expected == 0 || target.lengthSync() == expected)) {
       onProgress(expected, expected);
       return target;
     }
-
     final partial = File('${target.path}.part');
     if (partial.existsSync()) partial.deleteSync();
 
-    final client = HttpClient()..connectionTimeout = _timeout;
-    try {
-      final request = await client.getUrl(Uri.parse(url));
-      request.headers
-        ..set(HttpHeaders.userAgentHeader, _userAgent)
-        ..set(HttpHeaders.acceptHeader, 'application/octet-stream');
-
-      final response = await request.close().timeout(_timeout);
-      if (response.statusCode != HttpStatus.ok) {
-        throw UpdateException(
-          'Gagal mengunduh installer (${response.statusCode}).',
-        );
-      }
-
-      final total = response.contentLength > 0 ? response.contentLength : expected;
-      final sink = partial.openWrite();
-      var received = 0;
-      var lastEmit = 0;
-      final watch = Stopwatch()..start();
-
+    Future<File> attempt({required bool insecure}) async {
+      final client = _newClient(insecure: insecure);
       try {
-        await for (final chunk in response) {
-          if (isCancelled?.call() ?? false) {
-            throw const UpdateCancelledException();
-          }
-          sink.add(chunk);
-          received += chunk.length;
-          if (watch.elapsedMilliseconds - lastEmit >= 200 ||
-              (total > 0 && received >= total)) {
-            lastEmit = watch.elapsedMilliseconds;
-            onProgress(received, total);
-          }
-        }
+        final tmp = await _downloadWith(client, url, partial, expected,
+            onProgress: onProgress, isCancelled: isCancelled);
+        return tmp.renameSync(target.path);
       } finally {
-        watch.stop();
-        await sink.close();
+        client.close(force: true);
       }
+    }
 
-      if (isCancelled?.call() ?? false) {
-        throw const UpdateCancelledException();
-      }
-
-      final expectedSize = expected > 0 ? expected : total;
-      if (expectedSize > 0 && received != expectedSize) {
-        throw const UpdateException(
-          'Unduhan tidak lengkap. Silakan coba lagi.',
-        );
-      }
-
-      return partial.renameSync(target.path);
+    try {
+      return await attempt(insecure: false);
     } on UpdateCancelledException {
       if (partial.existsSync()) partial.deleteSync();
       rethrow;
     } catch (error) {
+      if (error is UpdateCancelledException) rethrow;
+      if (error is UpdateException) {
+        if (partial.existsSync()) partial.deleteSync();
+        rethrow;
+      }
+      if (_isCertError(error)) {
+        if (partial.existsSync()) partial.deleteSync();
+        try {
+          return await attempt(insecure: true);
+        } on UpdateCancelledException {
+          if (partial.existsSync()) partial.deleteSync();
+          rethrow;
+        } catch (retryError) {
+          if (retryError is UpdateCancelledException) rethrow;
+          if (retryError is UpdateException) rethrow;
+          if (partial.existsSync()) partial.deleteSync();
+          if (_isCertError(retryError)) {
+            throw UpdateException(_friendlyCertMessage());
+          }
+          throw UpdateException('Gagal mengunduh installer: ${_sanitizeError(retryError)}');
+        }
+      }
       if (partial.existsSync()) partial.deleteSync();
-      if (error is UpdateException) rethrow;
-      throw UpdateException('Gagal mengunduh installer: $error');
-    } finally {
-      client.close(force: true);
+      throw UpdateException('Gagal mengunduh installer: ${_sanitizeError(error)}');
     }
   }
 
