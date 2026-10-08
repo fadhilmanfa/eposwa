@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:eposwa/core/constants/app_colors.dart';
+import 'package:eposwa/core/database/app_database.dart';
+import 'package:eposwa/core/services/session_service.dart';
 import 'package:eposwa/features/beranda/presentation/pages/beranda_page.dart';
+import 'package:eposwa/features/main_layout/presentation/pages/main_layout_page.dart';
 
 /// Splash screen ePOSWA.
 /// Menampilkan logo UMS & Puskesmas dan progress bar "memuat": mulus di awal,
 /// tersendat-sendat di akhir ([SmoothThenStutterCurve]).
-/// Otomatis pindah ke [BerandaPage] setelah ±5 detik dengan transisi fade.
+/// Otomatis pindah ke [MainLayoutPage] jika "Ingat saya" aktif, atau
+/// [BerandaPage] setelah ±5 detik dengan transisi fade.
 class AppSplashScreen extends StatefulWidget {
   const AppSplashScreen({super.key});
 
@@ -50,7 +54,25 @@ class _AppSplashScreenState extends State<AppSplashScreen>
     _controller.forward();
   }
 
-  void _goToHome() {
+  Future<void> _goToHome() async {
+    if (!mounted) return;
+    // Auto-login: jika Ingat saya aktif, langsung ke MainLayoutPage.
+    try {
+      final db = getAppDatabase();
+      final admin = await SessionService.loadRememberedAdmin(db);
+      if (!mounted) return;
+      if (admin != null) {
+        Navigator.of(context).pushReplacement(
+          PageRouteBuilder(
+            transitionDuration: Duration.zero,
+            pageBuilder: (_, _, _) => const MainLayoutPage(),
+          ),
+        );
+        return;
+      }
+    } catch (_) {
+      // fallback ke Beranda jika DB belum siap / error
+    }
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(

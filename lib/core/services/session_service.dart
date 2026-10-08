@@ -12,10 +12,17 @@ class SessionService {
   static Future<void> saveSession(Admin admin, {bool remember = false}) async {
     currentAdmin = admin;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_kAdminId, admin.id);
-    await prefs.setString(_kUsername, admin.username);
-    await prefs.setString(_kNamaLengkap, admin.namaLengkap);
-    await prefs.setBool(_kRemember, remember);
+    if (remember) {
+      await prefs.setInt(_kAdminId, admin.id);
+      await prefs.setString(_kUsername, admin.username);
+      await prefs.setString(_kNamaLengkap, admin.namaLengkap);
+      await prefs.setBool(_kRemember, true);
+    } else {
+      await prefs.remove(_kAdminId);
+      await prefs.remove(_kUsername);
+      await prefs.remove(_kNamaLengkap);
+      await prefs.setBool(_kRemember, false);
+    }
   }
 
   static Future<void> clearSession() async {
@@ -24,8 +31,9 @@ class SessionService {
     await prefs.remove(_kAdminId);
     await prefs.remove(_kUsername);
     await prefs.remove(_kNamaLengkap);
-    // keep remember flag? clear anyway
+    await prefs.remove(_kRemember);
   }
+
 
   static Future<Admin?> loadRememberedAdmin(AppDatabase db) async {
     final prefs = await SharedPreferences.getInstance();

@@ -67,6 +67,7 @@ class ShareService {
   final Map<String, SharePeer> _peers = {};
   final _peersController = StreamController<SharePeer>.broadcast();
   final _receiveController = StreamController<String>.broadcast();
+  final _syncController = StreamController<String>.broadcast();
 
   String _deviceId = '';
 
@@ -81,12 +82,20 @@ class ShareService {
   /// Menyediakan SQL dump untuk dikirim saat laptop lain meminta (terima).
   Future<String> Function()? dataProvider;
 
+  /// Dipanggil saat laptop lain meminta sinkronisasi (opcode 0x03):
+  /// menerima dump peer, menerapkannya (union-merge), lalu mengembalikan
+  /// dump lokal untuk dikirim balik. Bila null, dump dikirim tanpa merge.
+  Future<String> Function(String peerSql)? syncRequestHandler;
+
   /// Nama perangkat (hostname) yang tampil di laptop lain.
   String get deviceName =>
       Platform.localHostname.isEmpty ? 'Laptop' : Platform.localHostname;
 
   Stream<SharePeer> get peers => _peersController.stream;
   Stream<String> get onReceiveSql => _receiveController.stream;
+  /// Dump SQL peer yang masuk lewat sinkronisasi (sisi server),
+  /// sesudah [syncRequestHandler] dijalankan.
+  Stream<String> get onSyncRequest => _syncController.stream;
   List<SharePeer> get peerList => _peers.values.toList(growable: false);
 
   // ---------------------------------------------------------------
@@ -377,7 +386,8 @@ if ($manager.TetheringOperationalState -eq 'On') {
 
   // ---------------------------------------------------------------
   // TCP protocol: [opcode(1) | len(4, big-endian) | payload]
-  // opcode 0x01 = push data SQL, 0x02 = minta data SQL
+  // opcode 0x01 = push data SQL, 0x02 = minta data SQL,
+  // opcode 0x03 = sinkronisasi dua-arah (tukar dump, keduanya union-merge)
   // ---------------------------------------------------------------
 
   Future<void> _handleClient(Socket socket) async {
@@ -409,6 +419,31 @@ if ($manager.TetheringOperationalState -eq 'On') {
             socket.add(_frame(0x01, data));
             await socket.flush();
           }
+          break;
+        } else if (opcode == 0x03) {
+          // Sinkronisasi dua-arah: payload = dump SQL peer.
+          // Sisi server juga union-merge agar kedua laptop identik
+          // walau hanya satu sisi yang menekan "Sinkronkan".
+          _lastSenderName =
+              _peers[socket.remoteAddress.address]?.name ?? 'Laptop lain';
+          final peerSql = utf8.decode(payload);
+          final handler = syncRequestHandler;
+          if (handler != null) {
+            try {
+              final localSql = await handler(peerSql);
+              socket.add(_frame(0x03, utf8.encode(localSql)));
+              await socket.flush();
+            } catch (_) {
+              socket.add(_frame(0x03, const []));
+              await socket.flush();
+            }
+          } else {
+            final provider = dataProvider;
+            final sql = provider != null ? await provider() : '';
+            socket.add(_frame(0x03, utf8.encode(sql)));
+            await socket.flush();
+          }
+          _syncController.add(peerSql);
           break;
         }
       }
@@ -460,6 +495,44 @@ if ($manager.TetheringOperationalState -eq 'On') {
         onTimeout: () => throw const SocketException('Waktu permintaan habis'),
       );
       if (msg[0] != 0x01) {
+        throw const SocketException('Respons tidak valid dari laptop lain');
+      }
+      return utf8.decode(msg.sublist(1));
+    } finally {
+      await sub.cancel();
+      try {
+        await socket.close();
+      } catch (_) {}
+    }
+  }
+
+  /// Sinkronisasi dua-arah dengan satu peer (tombol "Sinkronkan"):
+  /// kirim dump lokal (opcode 0x03) lalu terima dump balasan.
+  /// Peng merging dilakukan pemanggil via [SyncService] di kedua sisi
+  /// (sisi server lewat `syncRequestHandler`), sehingga walau hanya satu
+  /// sisi yang menekan tombol, kedua laptop berakhir dengan union yang sama.
+  /// Mengembalikan dump SQL milik peer.
+  Future<String> syncWithPeer(SharePeer peer, String localSql) async {
+    final socket = await Socket.connect(
+      peer.address,
+      peer.tcpPort,
+      timeout: const Duration(seconds: 15),
+    );
+    final reader = _MessageReader();
+    final sub = socket.listen(
+      reader.add,
+      onDone: reader.close,
+      onError: (_) => reader.close(),
+      cancelOnError: true,
+    );
+    try {
+      socket.add(_frame(0x03, utf8.encode(localSql)));
+      await socket.flush();
+      final msg = await reader.next().timeout(
+        const Duration(minutes: 5),
+        onTimeout: () => throw const SocketException('Waktu sinkron habis'),
+      );
+      if (msg[0] != 0x03) {
         throw const SocketException('Respons tidak valid dari laptop lain');
       }
       return utf8.decode(msg.sublist(1));

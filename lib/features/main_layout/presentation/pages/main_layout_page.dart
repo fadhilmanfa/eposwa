@@ -13,6 +13,9 @@ import 'package:eposwa/core/widgets/export_option_dialog.dart';
 import 'package:eposwa/core/services/import_service.dart';
 import 'package:eposwa/features/settings/presentation/pages/settings_page.dart';
 import 'package:eposwa/features/main_layout/presentation/widgets/update_button.dart';
+import 'package:eposwa/features/main_layout/presentation/widgets/share_dialogs.dart';
+import 'package:eposwa/features/main_layout/presentation/widgets/sambungkan_pc_dialog.dart';
+import 'package:eposwa/core/widgets/import_dialogs.dart';
 
 class MainLayoutPage extends StatefulWidget {
   final int initialIndex;
@@ -168,6 +171,90 @@ class _MainLayoutPageState extends State<MainLayoutPage> {
     }
   }
 
+  /// Berbagi Instan satu-arah (Kirim/Terima + preview + apply selektif).
+  Future<void> _handleInstan() async {
+    final result = await showDialog<ShareResult>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const ShareDialog(),
+    );
+    if (!mounted || result == null || result.sql == null) return;
+    final preview = await showDialog<(PreviewAction, String?)>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) =>
+          PreviewDialog(sql: result.sql!, senderName: result.peerName),
+    );
+    if (!mounted || preview == null || preview.$1 != PreviewAction.apply) {
+      return;
+    }
+    try {
+      final candidates = await ImportService.listCandidates(result.sql!);
+      if (!mounted) return;
+      final selected = await showImportCandidatesDialog(context, candidates);
+      if (selected == null || selected.isEmpty || !mounted) return;
+      final conflicts = candidates
+          .where((c) => c.isExisting && selected.contains(c.nik))
+          .toList();
+      Map<String, ImportStrategy>? strategies;
+      if (conflicts.isNotEmpty) {
+        if (!mounted) return;
+        strategies = await showImportConflictDialog(context, conflicts);
+        if (strategies == null || !mounted) return;
+      }
+      final importResult = await ImportService.importSqlFromContent(
+        result.sql!,
+        ImportStrategy.skip,
+        strategiesByNik: strategies,
+        onlyNiks: selected,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Instan dari ${result.peerName}: ${importResult.imported} baru, '
+            '${importResult.merged} digabung, ${importResult.replaced} ditimpa, '
+            '${importResult.skipped} dilewati',
+          ),
+          backgroundColor: AppColors.primary,
+        ),
+      );
+      _databaseKey.currentState?.refresh();
+      _testKey.currentState?.refresh();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal menerapkan data instan: $e'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
+  }
+
+  /// Sambungkan PC: sinkronisasi dua-arah satu-tap (union-merge).
+  Future<void> _handleSambungkanPc() async {
+    final result = await showDialog<SambungkanPcResult>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const SambungkanPcDialog(),
+    );
+    if (!mounted || result == null) return;
+    final applied = result.outcome.appliedFromPeer;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Sinkron ${result.peerName}: ${applied.imported} baru, '
+          '${applied.merged} digabung, ${applied.skriningAdded} skrining baru. '
+          'Kedua laptop kini identik.',
+        ),
+        backgroundColor: AppColors.primary,
+      ),
+    );
+    _databaseKey.currentState?.refresh();
+    _testKey.currentState?.refresh();
+  }
+
   Future<void> _handleImportSql() async {
     try {
       final result = await ImportService.importSqlWithDialog(context);
@@ -310,24 +397,8 @@ class _MainLayoutPageState extends State<MainLayoutPage> {
               _ProfileMenu(
                 onImport: _handleImportSql,
                 onExport: _handleExport,
-                onInstan: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: const Text('Fitur "Instan" segera hadir.'),
-                      behavior: SnackBarBehavior.floating,
-                      backgroundColor: AppColors.primary,
-                    ),
-                  );
-                },
-                onSambungkanPc: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: const Text('Fitur "Sambungkan PC" segera hadir.'),
-                      behavior: SnackBarBehavior.floating,
-                      backgroundColor: AppColors.primary,
-                    ),
-                  );
-                },
+                onInstan: _handleInstan,
+                onSambungkanPc: _handleSambungkanPc,
                 onSettings: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const SettingsPage()),
                 ),

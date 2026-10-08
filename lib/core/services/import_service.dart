@@ -20,7 +20,19 @@ class ImportResult {
   final int skipped;
   final int replaced;
   final int merged;
-  ImportResult({required this.imported, required this.skipped, required this.replaced, required this.merged});
+  /// Jumlah skrining yang benar-benar ditambahkan (semua mode).
+  final int skriningAdded;
+  /// Jumlah skrining yang dilewati karena sudah ada
+  /// (hanya bila `dedupeSkrining: true`).
+  final int skriningSkipped;
+  ImportResult({
+    required this.imported,
+    required this.skipped,
+    required this.replaced,
+    required this.merged,
+    this.skriningAdded = 0,
+    this.skriningSkipped = 0,
+  });
 }
 
 /// Satu peserta yang ada di dalam file SQL yang akan di-import.
@@ -210,20 +222,28 @@ class ImportService {
   }
 
   /// Import dari konten SQL langsung (dipakai untuk data yang diterima
-  /// lewat berbagi instan). Peserta NIK baru ditambahkan sebagai baris baru.
+  /// lewat berbagi instan maupun sinkronisasi PC). Peserta NIK baru
+  /// ditambahkan sebagai baris baru.
   ///
   /// [onlyNiks] membatasi peserta yang diproses (null = semua); NIK di luar
   /// daftar itu beserta skriningnya tidak disentuh sama sekali.
   /// [strategiesByNik] menentukan aksi untuk peserta yang NIK-nya sudah ada;
   /// NIK yang tidak tercantum memakai [strategy].
+  ///
+  /// [dedupeSkrining]: bila true, skrining yang sudah ada (kunci
+  /// peserta+tanggal+skor+kategori+rekomendasi) dilewati sehingga import
+  /// idempoten — aman dipanggil berulang saat sinkronisasi dua-arah.
+  /// Default false agar perilaku import file lama tidak berubah.
   static Future<ImportResult> importSqlFromContent(
     String content,
     ImportStrategy strategy, {
     Map<String, ImportStrategy>? strategiesByNik,
     Set<String>? onlyNiks,
+    bool dedupeSkrining = false,
   }) async {
     final currentDb = getAppDatabase();
     int imported = 0, skipped = 0, replaced = 0, merged = 0;
+    int skriningAdded = 0, skriningSkipped = 0;
     final lines = content.split('\n');
     final createStatements = <String>[];
     final pesertaInserts = <String>[];
@@ -357,6 +377,20 @@ class ImportService {
       if (nik.isEmpty) continue;
       oldIdToNik[id] = nik;
     }
+    // Sidik skrining lokal per peserta untuk dedup idempoten:
+    // kunci (tanggal|skor|kategori|rekomendasi). Dibangun sekali agar
+    // sinkronisasi berulang tidak menggandakan baris yang sama.
+    final Map<int, Set<String>> skriningSigByPeserta = {};
+    if (dedupeSkrining) {
+      final existingRecords = await currentDb
+          .select(currentDb.skriningRecords)
+          .get();
+      for (final r in existingRecords) {
+        skriningSigByPeserta
+            .putIfAbsent(r.pesertaId, () => <String>{})
+            .add('${r.tanggal}|${r.skor}|${r.kategori}|${r.rekomendasi}');
+      }
+    }
     final oldSkriningToNew = <int, int>{};
     for (final line in skriningInserts) {
       final parsed = _parseInsert(line);
@@ -377,6 +411,30 @@ class ImportService {
       final skorStr = map['skor']?.trim() ?? 'NULL';
       final skor = skorStr == 'NULL' ? null : int.tryParse(skorStr);
       final isRedFlag = (map['is_red_flag']?.trim() ?? '0') == '1';
+      if (dedupeSkrining) {
+        final sig = '$tanggal|$skor|$kategori|$rekomendasi';
+        final known = skriningSigByPeserta.putIfAbsent(
+          newPesertaId,
+          () => <String>{},
+        );
+        if (known.contains(sig)) {
+          // Petakan ke baris lokal yang sama agar jawaban tidak yatim;
+          // jawaban lama sudah ada, cukup lewati (UNIQUE skrining+nomor).
+          final existing = await (currentDb.select(
+            currentDb.skriningRecords,
+          )..where((t) => t.pesertaId.equals(newPesertaId))).get();
+          for (final r in existing) {
+            if ('${r.tanggal}|${r.skor}|${r.kategori}|${r.rekomendasi}' ==
+                sig) {
+              oldSkriningToNew[oldSkriningId] = r.id;
+              break;
+            }
+          }
+          skriningSkipped++;
+          continue;
+        }
+        known.add(sig);
+      }
       try {
         final newId = await currentDb.into(currentDb.skriningRecords).insert(
               SkriningRecordsCompanion.insert(
@@ -389,6 +447,7 @@ class ImportService {
               ),
             );
         oldSkriningToNew[oldSkriningId] = newId;
+        skriningAdded++;
       } catch (_) {}
     }
     for (final line in jawabanInserts) {
@@ -413,9 +472,15 @@ class ImportService {
             );
       } catch (_) {}
     }
-    return ImportResult(imported: imported, skipped: skipped, replaced: replaced, merged: merged);
+    return ImportResult(
+      imported: imported,
+      skipped: skipped,
+      replaced: replaced,
+      merged: merged,
+      skriningAdded: skriningAdded,
+      skriningSkipped: skriningSkipped,
+    );
   }
-
   static Future<ImportResult?> importSqlWithDialog(BuildContext context) async {
     final picked = await FilePicker.platform.pickFiles(
       dialogTitle: 'Pilih File SQL',
